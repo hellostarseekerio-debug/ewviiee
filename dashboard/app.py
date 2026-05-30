@@ -182,11 +182,11 @@ def load_backtest_report() -> Dict:
 
 def make_candlestick_chart(df: pd.DataFrame) -> go.Figure:
     fig = make_subplots(
-        rows=4, cols=1,
+        rows=3, cols=1,
         shared_xaxes=True,
         vertical_spacing=0.03,
-        row_heights=[0.55, 0.15, 0.15, 0.15],
-        subplot_titles=["Price + Indicators", "Volume", "MACD", "RSI"],
+        row_heights=[0.60, 0.20, 0.20],
+        subplot_titles=["Price + Indicators", "Volume", "RSI"],
     )
 
     # ── Candlesticks ──────────────────────────────────────────────────────────
@@ -257,35 +257,16 @@ def make_candlestick_chart(df: pd.DataFrame) -> go.Figure:
             row=2, col=1,
         )
 
-    # ── MACD ─────────────────────────────────────────────────────────────────
-    if "macd" in df.columns:
-        hist_colors = ["green" if v > 0 else "red" for v in df["macd_hist"].fillna(0)]
-        fig.add_trace(
-            go.Bar(x=df.index, y=df["macd_hist"], name="MACD Hist",
-                   marker_color=hist_colors, showlegend=False),
-            row=3, col=1,
-        )
-        fig.add_trace(
-            go.Scatter(x=df.index, y=df["macd"], name="MACD",
-                       line=dict(color="#00bfff", width=1)),
-            row=3, col=1,
-        )
-        fig.add_trace(
-            go.Scatter(x=df.index, y=df["macd_signal"], name="Signal",
-                       line=dict(color="orange", width=1)),
-            row=3, col=1,
-        )
-
     # ── RSI ───────────────────────────────────────────────────────────────────
     if "rsi_14" in df.columns:
         fig.add_trace(
             go.Scatter(x=df.index, y=df["rsi_14"], name="RSI(14)",
                        line=dict(color="#ff69b4", width=1.5)),
-            row=4, col=1,
+            row=3, col=1,
         )
-        fig.add_hline(y=70, line=dict(color="red", dash="dot", width=1), row=4, col=1)
-        fig.add_hline(y=30, line=dict(color="green", dash="dot", width=1), row=4, col=1)
-        fig.add_hline(y=50, line=dict(color="gray", dash="dot", width=1), row=4, col=1)
+        fig.add_hline(y=70, line=dict(color="red", dash="dot", width=1), row=3, col=1)
+        fig.add_hline(y=30, line=dict(color="green", dash="dot", width=1), row=3, col=1)
+        fig.add_hline(y=50, line=dict(color="gray", dash="dot", width=1), row=3, col=1)
 
     fig.update_layout(
         template="plotly_dark",
@@ -384,7 +365,6 @@ def main() -> None:
                 "EMA 9>21": latest.get("ema_9", 0) > latest.get("ema_21", 0),
                 "EMA 21>50": latest.get("ema_21", 0) > latest.get("ema_50", 0),
                 "Above EMA200": latest.get("close", 0) > latest.get("ema_200", 0),
-                "MACD Bull": latest.get("macd_hist", 0) > 0,
                 "RSI > 50": latest.get("rsi_14", 50) > 50,
                 "Above VWAP": latest.get("price_above_vwap", 0) == 1,
                 "SuperTrend Bull": latest.get("supertrend_bull", 0) == 1,

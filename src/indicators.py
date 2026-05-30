@@ -57,19 +57,6 @@ def add_sma(df: pd.DataFrame, periods: list[int] = [20, 50, 200]) -> pd.DataFram
     return df
 
 
-def add_macd(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
-    macd = ta.macd(df["close"], fast=fast, slow=slow, signal=signal)
-    df["macd"] = macd[f"MACD_{fast}_{slow}_{signal}"]
-    df["macd_signal"] = macd[f"MACDs_{fast}_{slow}_{signal}"]
-    df["macd_hist"] = macd[f"MACDh_{fast}_{slow}_{signal}"]
-    df["macd_cross_up"] = (
-        (df["macd"] > df["macd_signal"]) & (df["macd"].shift(1) <= df["macd_signal"].shift(1))
-    ).astype(int)
-    df["macd_cross_down"] = (
-        (df["macd"] < df["macd_signal"]) & (df["macd"].shift(1) >= df["macd_signal"].shift(1))
-    ).astype(int)
-    return df
-
 
 def add_adx(df: pd.DataFrame, length: int = 14) -> pd.DataFrame:
     adx = ta.adx(df["high"], df["low"], df["close"], length=length)
@@ -506,7 +493,6 @@ def compute_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     # Trend
     df = add_ema(df)
     df = add_sma(df)
-    df = add_macd(df)
     df = add_adx(df)
     df = add_parabolic_sar(df)
     df = add_ichimoku(df)

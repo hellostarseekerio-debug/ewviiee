@@ -101,8 +101,6 @@ def _score_long_signals(row: pd.Series) -> List[str]:
         signals.append("RSI oversold recovery")
     if safe("rsi_cross_50_up", 0) == 1:
         signals.append("RSI crossed above 50")
-    if safe("macd_hist", 0) > 0 and safe("macd_cross_up", 0) == 1:
-        signals.append("MACD bullish crossover")
     if safe("stoch_oversold", 0) == 1 and safe("stoch_k", 50) > safe("stoch_d", 50):
         signals.append("Stochastic oversold with K>D")
     if safe("cci", 0) > -100 and safe("cci", 0) < 0:
@@ -164,8 +162,6 @@ def _score_short_signals(row: pd.Series) -> List[str]:
         signals.append("RSI overbought")
     if safe("rsi_14", 50) < 50 and safe("rsi_14", 50) > 30:
         pass  # not bearish by itself
-    if safe("macd_hist", 0) < 0 and safe("macd_cross_down", 0) == 1:
-        signals.append("MACD bearish crossover")
     if safe("stoch_overbought", 0) == 1 and safe("stoch_k", 50) < safe("stoch_d", 50):
         signals.append("Stochastic overbought with K<D")
     if safe("cci", 0) > 100:

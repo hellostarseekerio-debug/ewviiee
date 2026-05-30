@@ -34,7 +34,6 @@ def test_compute_all_indicators_runs():
     assert "ema_9" in result.columns
     assert "ema_200" in result.columns
     assert "rsi_14" in result.columns
-    assert "macd" in result.columns
     assert "bb_upper" in result.columns
     assert "atr" in result.columns
     assert "obv" in result.columns
@@ -59,7 +58,7 @@ def test_no_future_leak():
     df2.loc[df2.index[-50:], "close"] *= 2.0
     result2 = compute_all_indicators(df2)
     # First 200 rows should be identical (no future data leaking back)
-    for col in ["ema_9", "rsi_14", "macd"]:
+    for col in ["ema_9", "rsi_14"]:
         if col in result1.columns and col in result2.columns:
             pd.testing.assert_series_equal(
                 result1[col].iloc[:200], result2[col].iloc[:200], check_names=False

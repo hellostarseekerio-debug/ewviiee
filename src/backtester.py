@@ -47,7 +47,6 @@ def generate_signals(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
     # Long entry: all of these must be True
     long_entry = (
         (df.get("rsi_14", pd.Series(50, index=df.index)) > rsi_buy)
-        & (df.get("macd_hist", pd.Series(0, index=df.index)) > 0)
         & (df.get("price_above_vwap", pd.Series(0, index=df.index)) == 1)
         & (df.get("supertrend_bull", pd.Series(0, index=df.index)) == 1)
         & (df.get("close", df["close"]) > df.get("ema_200", df["close"]))
@@ -57,7 +56,6 @@ def generate_signals(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
     # Short entry: mirror conditions
     short_entry = (
         (df.get("rsi_14", pd.Series(50, index=df.index)) < rsi_sell)
-        & (df.get("macd_hist", pd.Series(0, index=df.index)) < 0)
         & (df.get("price_above_vwap", pd.Series(0, index=df.index)) == 0)
         & (df.get("supertrend_bull", pd.Series(0, index=df.index)) == 0)
         & (df.get("close", df["close"]) < df.get("ema_200", df["close"]))
