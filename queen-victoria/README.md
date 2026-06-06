@@ -94,6 +94,49 @@ queen-victoria/
 | `POST` | `/api/chat` | AI concierge (Server-Sent Events stream) |
 | `GET`  | `/sitemap.xml`, `/robots.txt`, `/structured-data.json` | SEO |
 
+## Deploy to Netlify
+
+The project ships Netlify-ready (`netlify.toml` + a serverless Function). The
+front end is served from the CDN; the entire `/api/*` surface — including the
+streaming AI concierge — runs in **one Netlify Function** backed by **Netlify
+Blobs** for persistence (no external database, no extra account).
+
+> The app auto-detects Netlify (`process.env.NETLIFY`) and uses the Blobs store
+> there; locally it uses SQLite. Same code, two storage backends.
+
+### Option A — Connect the Git repo (recommended)
+
+1. Push this repo to GitHub/GitLab (already done if you're reading this on a branch).
+2. In Netlify: **Add new site → Import an existing project**, pick the repo.
+3. Netlify reads `netlify.toml` automatically — base `queen-victoria`, build
+   `npm run build:netlify`, publish `public`, functions `netlify/functions`.
+4. (Optional) **Site settings → Environment variables** → add
+   `ANTHROPIC_API_KEY` to switch the concierge from its local knowledge base to
+   live Claude. Optionally `ANTHROPIC_MODEL` (defaults to `claude-opus-4-8`).
+5. **Deploy.** Netlify enables Blobs automatically — nothing else to configure.
+
+### Option B — Netlify CLI
+
+```bash
+npm i -g netlify-cli
+cd queen-victoria
+netlify init        # link or create the site
+netlify env:set ANTHROPIC_API_KEY sk-ant-...   # optional, for live AI mode
+netlify deploy --build --prod
+```
+
+`netlify dev` runs the whole thing locally (static + functions + Blobs) at
+<http://localhost:8888>.
+
+### What runs where on Netlify
+
+| Path | Served by |
+|---|---|
+| `/`, `/*.html`, `/css`, `/js`, `/assets` | CDN (static) |
+| `/sitemap.xml`, `/robots.txt`, `/structured-data.json` | CDN (generated at build) |
+| `/api/*` (menu, reservations, contact, newsletter) | Function → Netlify Blobs |
+| `/api/chat` | Function (streaming SSE) → Claude or fallback |
+
 ## Configuration
 
 See `.env.example`. All values are optional for local development.

@@ -7,8 +7,10 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "seed": "node server/seed.js",
-    "test": "node --test"
+    "build:assets": "node scripts/generate-assets.mjs",
+    "build:seo": "node scripts/build-seo.mjs",
+    "build:netlify": "node scripts/generate-assets.mjs && node scripts/build-seo.mjs",
+    "test": "node scripts/smoke.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -27,6 +29,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
+    "@netlify/blobs": "^10.0.10",
     "better-sqlite3": "^12.4.1",
     "compression": "^1.8.0",
     "cors": "^2.8.5",

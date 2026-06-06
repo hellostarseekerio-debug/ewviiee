@@ -11,6 +11,14 @@ data/
 *.db-shm
 *.db-wal
 
+# Build-generated SEO (written by scripts/build-seo.mjs at build time)
+public/sitemap.xml
+public/robots.txt
+public/structured-data.json
+
+# Netlify
+.netlify/
+
 # Logs & OS cruft
 *.log
 .DS_Store
