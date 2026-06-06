@@ -1,0 +1,12 @@
+{
+  "name": "The Queen Victoria — Wan Chai",
+  "short_name": "Queen Victoria",
+  "description": "Wan Chai's British dining house and bar. Pub classics, hand-pulled ales and an award-winning gin library.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10342A",
+  "theme_color": "#10342A",
+  "icons": [
+    { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

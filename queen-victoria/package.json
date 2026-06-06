@@ -1,0 +1,39 @@
+{
+  "name": "the-queen-victoria",
+  "version": "1.0.0",
+  "description": "The Queen Victoria — luxury British bar & dining house, Wan Chai, Hong Kong. Full-stack website with reservations, menu, events and an AI concierge.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node server/seed.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "queen victoria",
+    "wan chai",
+    "hong kong",
+    "british pub",
+    "bar",
+    "restaurant",
+    "reservations"
+  ],
+  "author": "The Queen Victoria HK",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0",
+    "better-sqlite3": "^12.4.1",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.2.0",
+    "helmet": "^8.1.0",
+    "nanoid": "^5.1.7"
+  }
+}

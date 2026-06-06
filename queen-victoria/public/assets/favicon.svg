@@ -1,0 +1,8 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="12" fill="#10342A"/>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#E8D49B"/><stop offset="1" stop-color="#C2A04C"/>
+  </linearGradient></defs>
+  <path d="M22 18 L26 12 L30 17 L32 11 L34 17 L38 12 L42 18 L40 22 L24 22 Z" fill="url(#g)"/>
+  <text x="32" y="46" text-anchor="middle" font-family="Georgia, serif" font-size="26" font-weight="700" fill="url(#g)">QV</text>
+</svg>

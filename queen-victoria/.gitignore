@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Runtime data (SQLite + WAL)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs & OS cruft
+*.log
+.DS_Store
