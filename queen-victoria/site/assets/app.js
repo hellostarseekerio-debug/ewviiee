@@ -30,9 +30,18 @@
     return 'url("data:image/svg+xml,' + encodeURIComponent(s) + '")';
   }
   window.qvScene = scene;
+  // Progressive enhancement: if a real photo exists at data-photo, use it;
+  // otherwise the generated SVG art stays. Never shows a broken image.
+  function usePhoto(el, src) {
+    if (!src) return;
+    var img = new Image();
+    img.onload = function () { el.style.backgroundImage = 'url("' + src + '")'; el.classList.add("has-photo"); };
+    img.src = src;
+  }
   $$("[data-scene]").forEach(function (el) {
     var d = el.dataset;
     el.style.backgroundImage = scene(+(d.w || 1600), +(d.h || 1000), +(d.seed || 1), d.pal || "hero", +(d.lights || 4), +(d.dots || 26));
+    if (d.photo) usePhoto(el, d.photo);
   });
 
   /* ---- Gallery (gallery page) ---- */
@@ -53,8 +62,13 @@
       ["night", 137, 1080, "Where regulars become family"]
     ].forEach(function (t, i) {
       var f = document.createElement("figure"); f.setAttribute("data-reveal", ""); if (i % 2) f.setAttribute("data-delay", "1");
-      f.innerHTML = '<div class="scene" style="height:' + (t[2] * 0.42) + 'px;background-image:' + scene(800, t[2], t[1], t[0], 3, 14) + ';background-size:cover"></div><figcaption>' + t[3] + '</figcaption>';
-      gg.appendChild(f);
+      var sc = document.createElement("div");
+      sc.className = "scene";
+      sc.style.cssText = "height:" + (t[2] * 0.42) + "px;background-size:cover;background-position:center;background-image:" + scene(800, t[2], t[1], t[0], 3, 14);
+      var cap = document.createElement("figcaption"); cap.textContent = t[3];
+      f.appendChild(sc); f.appendChild(cap); gg.appendChild(f);
+      // Use a real photo if present: assets/photos/gallery-01.jpg … gallery-12.jpg
+      usePhoto(sc, "assets/photos/gallery-" + (i + 1 < 10 ? "0" : "") + (i + 1) + ".jpg");
     });
   }
 
