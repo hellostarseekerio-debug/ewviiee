@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doubloon — Welcome aboard</title>
+<style>
+  :root { --bg:#0d1321; --panel:#161d2f; --line:#263047; --ink:#e8e6df; --muted:#9aa3b5; --gold:#d9a441; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.6 Georgia, serif;
+         min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+          padding:44px 40px; max-width:440px; text-align:center; }
+  h1 { font-size:26px; margin:14px 0 10px; }
+  p { color:var(--muted); margin-bottom:22px; }
+  .btn { display:inline-block; background:var(--gold); color:#0d1321; font-weight:bold;
+         padding:12px 26px; border-radius:8px; text-decoration:none; }
+  .big { font-size:44px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="big">🏴‍☠️</div>
+  <h1 id="title">Hoisting the colors…</h1>
+  <p id="detail">Confirming your payment with the harbormaster.</p>
+  <a class="btn" href="/chat.html" id="go" style="display:none">Open the app</a>
+</div>
+<script>
+  const sid = new URLSearchParams(location.search).get('session_id');
+  const title = document.getElementById('title');
+  const detail = document.getElementById('detail');
+  const go = document.getElementById('go');
+
+  async function activate(attempt) {
+    if (!sid) {
+      title.textContent = 'Missing session';
+      detail.textContent = 'No session_id in the URL. Configure your Stripe Payment Link to redirect to /success.html?session_id={CHECKOUT_SESSION_ID}.';
+      return;
+    }
+    const res = await fetch('/api/activate?session_id=' + encodeURIComponent(sid));
+    if (res.ok) {
+      const data = await res.json();
+      title.textContent = 'Welcome aboard, Pro. ⚜';
+      detail.textContent = 'Unlimited messages unlocked on this browser for ' + data.days + ' days.';
+      go.style.display = 'inline-block';
+    } else if (attempt < 5) {
+      // Webhooks can lag the redirect by a few seconds — retry briefly.
+      setTimeout(() => activate(attempt + 1), 2000);
+    } else {
+      title.textContent = 'Payment not confirmed yet';
+      detail.textContent = 'The webhook has not arrived. Refresh this page in a minute — your payment is safe.';
+    }
+  }
+  activate(0);
+</script>
+</body>
+</html>
