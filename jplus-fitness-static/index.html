@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>J Plus Fitness | Elite Personal Training in Central, Hong Kong</title>
+<meta name="description" content="Hong Kong's premier private personal-training studio. Science-based one-on-one coaching, body-composition analysis and nutrition guidance at 6/F Abdoolally House, 20 Stanley Street, Central. Rated 5.0 on Google." />
+<meta property="og:title" content="J Plus Fitness | Elite Personal Training in Central, Hong Kong" />
+<meta property="og:description" content="Transform your body with Hong Kong's elite personal trainers. Rated 5.0 on Google with 27+ five-star reviews." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%232f7dff'/><text x='32' y='42' font-size='28' font-weight='bold' font-family='Arial' fill='white' text-anchor='middle'>J%2B</text></svg>" />
+<style>
+  :root {
+    --bg: #090909;
+    --card: #111111;
+    --card-hover: #161616;
+    --electric: #2f7dff;
+    --electric-bright: #4d94ff;
+    --emerald: #10b981;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; color-scheme: dark; }
+
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    line-height: 1.5;
+  }
+
+  ::selection { background: rgba(47, 125, 255, 0.35); color: #fff; }
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: #090909; }
+  ::-webkit-scrollbar-thumb { background: #232323; border-radius: 8px; border: 2px solid #090909; }
+
+  img { max-width: 100%; display: block; }
+  a { color: inherit; text-decoration: none; }
+  ul, ol { list-style: none; }
+  button { font-family: inherit; cursor: pointer; }
+  .icon { width: 1.25rem; height: 1.25rem; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Utilities ---------- */
+  .glass {
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-bright {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, #ffffff 30%, rgba(255, 255, 255, 0.45));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .text-gradient-electric {
+    background: linear-gradient(120deg, #4d94ff, #10b981);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  /* ---------- Scroll reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.8s var(--ease), transform 0.8s var(--ease); }
+  .reveal.in { opacity: 1; transform: none; }
+  .stagger > * { opacity: 0; transform: translateY(28px); transition: opacity 0.8s var(--ease), transform 0.8s var(--ease); }
+  .stagger.in > * { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .stagger > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+    * { animation-duration: 0.001s !important; }
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 999px; border: none; font-weight: 500; letter-spacing: -0.01em;
+    font-size: 15px; padding: 0 32px; height: 52px;
+    transition: all 0.3s var(--ease); white-space: nowrap;
+  }
+  .btn .icon { width: 1rem; height: 1rem; transition: transform 0.3s var(--ease); }
+  .btn-sm { height: 38px; padding: 0 18px; font-size: 14px; }
+  .btn-primary {
+    background: var(--electric); color: #fff;
+    box-shadow: 0 0 30px -8px rgba(47, 125, 255, 0.7);
+  }
+  .btn-primary:hover {
+    background: var(--electric-bright);
+    box-shadow: 0 0 45px -6px rgba(47, 125, 255, 0.85);
+    transform: translateY(-2px);
+  }
+  .btn-primary:hover .icon { transform: translateX(4px); }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.04); color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(24px);
+  }
+  .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: 999px; border: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.03); padding: 7px 15px;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.06em;
+    color: var(--gray-300); text-transform: uppercase;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--electric); }
+  .badge .dot.green { background: var(--emerald); }
+
+  /* ---------- Section titles ---------- */
+  .section { padding: 110px 0; }
+  .section-head { max-width: 760px; margin: 0 auto 70px; text-align: center; }
+  .section-head .badge { margin-bottom: 20px; }
+  .section-head h2 {
+    font-size: clamp(2.3rem, 5vw, 3.6rem);
+    font-weight: 700; letter-spacing: -0.03em; line-height: 1.08;
+    text-wrap: balance;
+  }
+  .section-head p { margin-top: 20px; color: var(--gray-400); font-size: clamp(1rem, 1.4vw, 1.125rem); }
+
+  /* ---------- Navbar ---------- */
+  .nav-wrap { position: fixed; inset: 16px 16px auto; z-index: 50; display: flex; justify-content: center; }
+  nav.main-nav {
+    width: 100%; max-width: 1280px; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; border-radius: 16px; border: 1px solid transparent;
+    transition: all 0.5s var(--ease);
+  }
+  nav.main-nav.scrolled {
+    background: rgba(17, 17, 17, 0.6);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.5);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-mark {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: var(--electric); font-weight: 700; font-size: 14px;
+    box-shadow: 0 0 24px -6px rgba(47, 125, 255, 0.8);
+  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+  .logo-text small { display: block; font-size: 9.5px; font-weight: 500; letter-spacing: 0.22em; color: var(--gray-500); text-transform: uppercase; }
+  .nav-links { display: flex; align-items: center; gap: 2px; }
+  .nav-links a {
+    padding: 8px 14px; border-radius: 999px; font-size: 14px; color: var(--gray-400);
+    transition: all 0.2s;
+  }
+  .nav-links a:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+  .nav-cta { display: inline-flex; }
+  .menu-btn { display: none; background: none; border: none; color: var(--gray-300); padding: 8px; border-radius: 10px; }
+  .menu-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .mobile-menu {
+    display: none; position: absolute; top: 72px; left: 0; right: 0;
+    border-radius: 16px; border: 1px solid var(--line-strong);
+    background: rgba(13, 13, 13, 0.96); backdrop-filter: blur(24px);
+    padding: 14px; box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.7);
+  }
+  .mobile-menu.open { display: block; }
+  .mobile-menu a { display: block; padding: 12px 16px; border-radius: 12px; font-size: 14px; color: var(--gray-300); }
+  .mobile-menu a:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .mobile-menu .btn { width: 100%; margin-top: 12px; }
+  @media (max-width: 1200px) {
+    .nav-links, .nav-cta { display: none; }
+    .menu-btn { display: block; }
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative; min-height: 100svh; display: flex; align-items: center;
+    justify-content: center; overflow: hidden; text-align: center;
+  }
+  .hero-bg { position: absolute; inset: -10% 0; z-index: -2; will-change: transform; }
+  .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
+  .hero-bg::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(9,9,9,0.75), rgba(9,9,9,0.62) 50%, var(--bg));
+  }
+  .hero-glow {
+    position: absolute; top: -160px; left: 50%; transform: translateX(-50%);
+    width: 900px; height: 560px; border-radius: 50%;
+    background: rgba(47, 125, 255, 0.15); filter: blur(140px);
+    z-index: -1; pointer-events: none;
+  }
+  .hero-inner { padding: 150px 24px 110px; width: 100%; max-width: 1280px; }
+  .hero h1 {
+    margin: 32px auto 0; max-width: 1000px;
+    font-size: clamp(2.7rem, 7.5vw, 6rem);
+    font-weight: 800; letter-spacing: -0.04em; line-height: 1.02; text-wrap: balance;
+  }
+  .hero-sub { margin: 28px auto 0; max-width: 640px; color: var(--gray-400); font-size: clamp(1rem, 1.5vw, 1.125rem); }
+  .hero-ctas { margin-top: 40px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+  .hero-anim { opacity: 0; transform: translateY(28px); animation: heroUp 0.9s var(--ease) forwards; }
+  @keyframes heroUp { to { opacity: 1; transform: none; } }
+
+  .hero-stats {
+    margin: 80px auto 0; max-width: 900px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+    border-radius: 24px; padding: 38px 24px;
+  }
+  .hero-stats .num { font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 700; letter-spacing: -0.02em; }
+  .hero-stats .lbl { margin-top: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-500); }
+  @media (max-width: 720px) { .hero-stats { grid-template-columns: repeat(2, 1fr); row-gap: 32px; } }
+
+  .float-card {
+    position: absolute; z-index: 2; display: none;
+    border-radius: 16px; padding: 16px;
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+    animation: floaty 7s ease-in-out infinite;
+  }
+  .float-card.right { animation-duration: 11s; }
+  @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+  @media (min-width: 1024px) {
+    .float-card { display: block; }
+    .float-card.left { top: 24%; left: 40px; }
+    .float-card.right { top: 38%; right: 40px; }
+  }
+  .float-card .row { display: flex; align-items: center; gap: 12px; text-align: left; }
+  .float-card .ic {
+    width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    background: rgba(16, 185, 129, 0.15); color: var(--emerald);
+  }
+  .float-card .t1 { font-size: 14px; font-weight: 600; }
+  .float-card .t2 { font-size: 12px; color: var(--gray-500); }
+  .avatars { display: flex; }
+  .avatars img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--card); margin-left: -8px; }
+  .avatars img:first-child { margin-left: 0; }
+  .stars-sm { display: flex; gap: 2px; }
+  .stars-sm .icon { width: 12px; height: 12px; fill: var(--emerald); stroke: var(--emerald); }
+
+  .scroll-hint {
+    position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+    width: 24px; height: 40px; border: 1px solid var(--line-strong); border-radius: 999px;
+    display: flex; justify-content: center; padding-top: 6px;
+    animation: hintBob 2s ease-in-out infinite;
+  }
+  .scroll-hint span { width: 4px; height: 8px; border-radius: 999px; background: var(--gray-400); }
+  @keyframes hintBob { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 8px); } }
+
+  /* ---------- Trust ---------- */
+  .trust { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 72px 0; }
+  .trust-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; }
+  .stars-lg { display: flex; gap: 6px; }
+  .stars-lg .icon { width: 27px; height: 27px; fill: var(--emerald); stroke: var(--emerald); }
+  .trust h2 { font-size: clamp(1.5rem, 3vw, 1.9rem); font-weight: 600; letter-spacing: -0.02em; }
+  .trust p { max-width: 560px; color: var(--gray-400); font-size: 15px; }
+  .marquee-wrap {
+    margin-top: 48px; overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+  }
+  .marquee { display: flex; gap: 12px; width: max-content; padding-right: 12px; animation: marquee 40s linear infinite; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    border-radius: 999px; padding: 10px 20px; font-size: 14px; color: var(--gray-300);
+  }
+  .chip .icon { width: 14px; height: 14px; fill: var(--emerald); stroke: var(--emerald); }
+
+  /* ---------- About ---------- */
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+  @media (max-width: 1023px) { .about-grid { grid-template-columns: 1fr; gap: 56px; } }
+  .about-img { position: relative; }
+  .about-img .frame { aspect-ratio: 4/5; border-radius: 24px; overflow: hidden; border: 1px solid var(--line); position: relative; }
+  .about-img .frame img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s var(--ease); }
+  .about-img .frame:hover img { transform: scale(1.05); }
+  .about-img .frame::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(9,9,9,0.7), transparent 50%); }
+  .about-stat {
+    position: absolute; right: -16px; bottom: -24px; border-radius: 16px; padding: 20px;
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+  }
+  @media (max-width: 639px) { .about-stat { display: none; } }
+  .about-stat .big { font-size: 30px; font-weight: 700; }
+  .about-stat .big span { color: var(--electric-bright); }
+  .about-stat p { margin-top: 4px; max-width: 160px; font-size: 12px; color: var(--gray-400); }
+  .about-copy h2 { font-size: clamp(2.1rem, 4vw, 3rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; text-wrap: balance; }
+  .about-copy > .badge { margin-bottom: 20px; }
+  .about-copy .lead { margin-top: 24px; color: var(--gray-400); font-size: clamp(1rem, 1.4vw, 1.1rem); }
+  .feature-grid { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 639px) { .feature-grid { grid-template-columns: 1fr; } }
+  .feature {
+    border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 20px;
+    transition: all 0.3s var(--ease); height: 100%;
+  }
+  .feature:hover { border-color: var(--line-strong); background: var(--card-hover); transform: translateY(-4px); }
+  .feature .ic {
+    width: 40px; height: 40px; border-radius: 12px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(47, 125, 255, 0.1); color: var(--electric-bright);
+    transition: background 0.3s;
+  }
+  .feature:hover .ic { background: rgba(47, 125, 255, 0.2); }
+  .feature h3 { font-size: 14px; font-weight: 600; }
+  .feature p { margin-top: 6px; font-size: 13.5px; color: var(--gray-400); }
+
+  /* ---------- Services ---------- */
+  .services { position: relative; }
+  .grid-fade {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+  }
+  .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 1023px) { .cards-3 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 639px) { .cards-3 { grid-template-columns: 1fr; } }
+  .svc {
+    position: relative; overflow: hidden; height: 100%;
+    border: 1px solid var(--line); background: var(--card); border-radius: 24px; padding: 28px;
+    transition: all 0.5s var(--ease);
+  }
+  .svc:hover {
+    border-color: var(--line-strong); background: var(--card-hover);
+    transform: translateY(-6px); box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.4);
+  }
+  .svc .glow {
+    position: absolute; top: -96px; right: -96px; width: 192px; height: 192px; border-radius: 50%;
+    filter: blur(80px); opacity: 0; transition: opacity 0.7s; pointer-events: none;
+  }
+  .svc.electric .glow { background: rgba(47, 125, 255, 0.3); }
+  .svc.emerald .glow { background: rgba(16, 185, 129, 0.25); }
+  .svc:hover .glow { opacity: 1; }
+  .svc-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .svc .ic {
+    width: 48px; height: 48px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.5s var(--ease);
+  }
+  .svc:hover .ic { transform: scale(1.1); }
+  .svc.electric .ic { background: rgba(47, 125, 255, 0.1); color: var(--electric-bright); }
+  .svc.emerald .ic { background: rgba(16, 185, 129, 0.1); color: var(--emerald); }
+  .svc .arrow { color: var(--gray-600); transition: all 0.3s; }
+  .svc:hover .arrow { color: #fff; transform: translate(2px, -2px); }
+  .svc h3 { margin-top: 24px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .svc p { margin-top: 8px; font-size: 14px; color: var(--gray-400); }
+
+  /* ---------- Transformations ---------- */
+  .tf-card {
+    border: 1px solid var(--line); background: var(--card); border-radius: 24px; overflow: hidden;
+    transition: all 0.5s var(--ease); height: 100%;
+  }
+  .tf-card:hover { border-color: var(--line-strong); transform: translateY(-6px); box-shadow: 0 32px 64px -16px rgba(0,0,0,0.4); }
+  .ba { position: relative; aspect-ratio: 4/5; user-select: none; overflow: hidden; }
+  .ba img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ba .before-img { filter: grayscale(1); clip-path: inset(0 50% 0 0); }
+  .ba .divider { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(255,255,255,0.8); pointer-events: none; }
+  .ba .handle {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .ba .handle .icon { width: 16px; height: 16px; }
+  .ba input[type="range"] {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; cursor: ew-resize; z-index: 5; margin: 0;
+  }
+  .ba .tag {
+    position: absolute; top: 16px; border-radius: 999px; padding: 5px 12px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    backdrop-filter: blur(12px); z-index: 4;
+  }
+  .ba .tag.b { left: 16px; background: rgba(0,0,0,0.6); color: var(--gray-300); }
+  .ba .tag.a { right: 16px; background: rgba(47,125,255,0.8); color: #fff; }
+  .tf-meta { padding: 24px; }
+  .tf-meta .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .tf-meta h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .tf-meta .dur { font-size: 12px; font-weight: 500; color: var(--gray-500); }
+  .tf-meta .prog { margin-top: 2px; font-size: 14px; color: var(--electric-bright); }
+  .tf-metrics {
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .tf-metrics .v { font-size: 16px; font-weight: 700; color: var(--emerald); }
+  .tf-metrics .l { margin-top: 2px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-500); }
+  .tf-note { margin-top: 32px; text-align: center; font-size: 12px; color: var(--gray-600); }
+
+  /* ---------- Coaches ---------- */
+  .coaches-section { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(17,17,17,0.4); }
+  .coach-featured {
+    display: grid; grid-template-columns: 1fr 1fr; border-radius: 24px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--card);
+  }
+  @media (max-width: 1023px) { .coach-featured { grid-template-columns: 1fr; } }
+  .coach-featured .photo { position: relative; min-height: 420px; overflow: hidden; }
+  .coach-featured .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s var(--ease); }
+  .coach-featured:hover .photo img { transform: scale(1.05); }
+  .coach-featured .photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, var(--card), transparent 45%); }
+  @media (min-width: 1024px) { .coach-featured .photo::after { background: linear-gradient(to right, transparent 55%, var(--card)); } }
+  .coach-featured .photo .badge {
+    position: absolute; top: 20px; left: 20px; z-index: 2;
+    border-color: rgba(47,125,255,0.4); background: rgba(47,125,255,0.15); color: var(--electric-bright);
+  }
+  .coach-info { padding: 48px; display: flex; flex-direction: column; justify-content: center; }
+  @media (max-width: 639px) { .coach-info { padding: 28px; } }
+  .coach-info h3 { font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 700; letter-spacing: -0.02em; }
+  .coach-info .role { margin-top: 6px; font-size: 14px; font-weight: 500; color: var(--electric-bright); }
+  .coach-info blockquote {
+    margin-top: 28px; padding-left: 20px; border-left: 2px solid rgba(47,125,255,0.5);
+    font-style: italic; color: var(--gray-300); font-size: 15.5px;
+  }
+  .coach-sub { margin-top: 30px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gray-500); }
+  .tag-list { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-cert {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line-strong); background: rgba(255,255,255,0.03);
+    border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--gray-300);
+  }
+  .tag-cert .icon { width: 14px; height: 14px; color: var(--emerald); }
+  .tag-exp { background: rgba(47,125,255,0.1); color: var(--electric-bright); border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 500; }
+  .coach-grid { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 767px) { .coach-grid { grid-template-columns: 1fr; } }
+  .coach-card {
+    display: flex; border: 1px solid var(--line); background: var(--card); border-radius: 24px;
+    overflow: hidden; transition: all 0.5s var(--ease); height: 100%;
+  }
+  @media (max-width: 639px) { .coach-card { flex-direction: column; } }
+  .coach-card:hover { border-color: var(--line-strong); transform: translateY(-6px); box-shadow: 0 32px 64px -16px rgba(0,0,0,0.4); }
+  .coach-card .photo { position: relative; width: 40%; min-height: 240px; flex-shrink: 0; overflow: hidden; }
+  @media (max-width: 639px) { .coach-card .photo { width: 100%; aspect-ratio: 4/3; } }
+  .coach-card .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s var(--ease); }
+  .coach-card:hover .photo img { transform: scale(1.05); }
+  .coach-card .body { padding: 26px; display: flex; flex-direction: column; }
+  .coach-card h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .coach-card .role { margin-top: 2px; font-size: 14px; color: var(--electric-bright); }
+  .coach-card .phil { margin-top: 12px; font-size: 14px; color: var(--gray-400); }
+  .coach-card .tag-list { margin-top: auto; padding-top: 20px; }
+  .coach-card .tag-exp { background: rgba(255,255,255,0.04); color: var(--gray-300); font-size: 11px; }
+
+  /* ---------- Process ---------- */
+  .process-wrap { max-width: 960px; margin: 0 auto; }
+  .timeline { position: relative; }
+  .timeline::before {
+    content: ""; position: absolute; top: 8px; bottom: 8px; left: 19px; width: 1px;
+    background: linear-gradient(to bottom, var(--electric), var(--emerald), transparent);
+  }
+  @media (min-width: 768px) { .timeline::before { left: 50%; } }
+  .step { position: relative; margin-bottom: 40px; padding-left: 56px; }
+  .step:last-child { margin-bottom: 0; }
+  @media (min-width: 768px) {
+    .step { width: 50%; padding-left: 0; }
+    .step.left { padding-right: 56px; text-align: right; }
+    .step.right { margin-left: 50%; padding-left: 56px; }
+  }
+  .node { position: absolute; top: 6px; left: 12px; width: 16px; height: 16px; }
+  @media (min-width: 768px) {
+    .step.left .node { left: auto; right: -8px; }
+    .step.right .node { left: -8px; }
+  }
+  .node::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(47,125,255,0.3); animation: ping 2.4s ease-out infinite;
+  }
+  .node::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%;
+    background: var(--electric); box-shadow: 0 0 12px rgba(47,125,255,0.9);
+  }
+  @keyframes ping { 0% { transform: scale(1); opacity: 1; } 75%, 100% { transform: scale(2); opacity: 0; } }
+  .step-card {
+    border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 24px;
+    transition: all 0.3s var(--ease);
+  }
+  .step-card:hover { border-color: var(--line-strong); background: var(--card-hover); transform: translateY(-4px); }
+  .step-card .no { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; color: var(--electric-bright); }
+  .step-card h3 { margin-top: 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .step-card p { margin-top: 8px; font-size: 14px; color: var(--gray-400); }
+
+  /* ---------- Testimonials ---------- */
+  .reviews-section { position: relative; overflow: hidden; }
+  .reviews-glow {
+    position: absolute; top: 33%; left: 50%; transform: translateX(-50%);
+    width: 820px; height: 420px; border-radius: 50%;
+    background: rgba(16, 185, 129, 0.08); filter: blur(160px); z-index: -1; pointer-events: none;
+  }
+  .review-track { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; transition: opacity 0.4s var(--ease), transform 0.4s var(--ease); }
+  @media (max-width: 1023px) { .review-track { grid-template-columns: 1fr; } }
+  .review-track.swap { opacity: 0; transform: translateX(40px); }
+  .rev {
+    display: flex; flex-direction: column; height: 100%;
+    border-radius: 24px; padding: 28px; transition: transform 0.3s var(--ease), border-color 0.3s;
+  }
+  .rev:hover { transform: translateY(-4px); border-color: var(--line-strong); }
+  .rev-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .rev-tag { background: rgba(47,125,255,0.1); color: var(--electric-bright); border-radius: 999px; padding: 4px 12px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .rev blockquote { margin-top: 20px; flex: 1; font-size: 14px; color: var(--gray-300); }
+  .rev figcaption { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .rev figcaption img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+  .rev .nm { font-size: 14px; font-weight: 600; }
+  .rev .mt { font-size: 12px; color: var(--gray-500); }
+  .rev-controls { margin-top: 40px; display: flex; align-items: center; justify-content: center; gap: 16px; }
+  .rev-arrow {
+    width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    color: var(--gray-300); transition: all 0.3s;
+  }
+  .rev-arrow:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .rev-dots { display: flex; gap: 8px; }
+  .rev-dot { height: 6px; width: 12px; border-radius: 999px; border: none; background: rgba(255,255,255,0.15); transition: all 0.3s; }
+  .rev-dot:hover { background: rgba(255,255,255,0.3); }
+  .rev-dot.active { width: 32px; background: var(--electric); }
+
+  /* ---------- Pricing ---------- */
+  .pricing-section { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(17,17,17,0.4); }
+  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1040px; margin: 0 auto; align-items: stretch; }
+  @media (max-width: 1023px) { .plans { grid-template-columns: 1fr; max-width: 480px; } }
+  .plan {
+    position: relative; display: flex; flex-direction: column; height: 100%;
+    border: 1px solid var(--line); background: var(--card); border-radius: 24px; padding: 32px;
+    transition: all 0.5s var(--ease);
+  }
+  .plan:hover { transform: translateY(-8px); border-color: var(--line-strong); }
+  .plan.hot {
+    border-color: rgba(47,125,255,0.5);
+    box-shadow: 0 0 0 1px rgba(47,125,255,0.4), 0 0 40px -8px rgba(47,125,255,0.5);
+  }
+  @media (min-width: 1024px) { .plan.hot { transform: scale(1.04); } .plan.hot:hover { transform: scale(1.04) translateY(-8px); } }
+  .plan .pop {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    background: var(--electric); color: #fff; border-radius: 999px; padding: 6px 16px;
+    font-size: 12px; font-weight: 600; box-shadow: 0 8px 24px rgba(47,125,255,0.4);
+  }
+  .plan .pop .icon { width: 14px; height: 14px; }
+  .plan h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .plan .tag { margin-top: 4px; font-size: 14px; color: var(--gray-500); }
+  .plan .price { margin-top: 24px; display: flex; align-items: baseline; gap: 6px; }
+  .plan .price b { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
+  .plan .price span { font-size: 14px; color: var(--gray-500); }
+  .plan ul { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
+  .plan li { display: flex; gap: 12px; font-size: 14px; color: var(--gray-300); align-items: flex-start; }
+  .plan li .ck {
+    margin-top: 2px; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(16,185,129,0.1); color: var(--emerald);
+  }
+  .plan.hot li .ck { background: rgba(47,125,255,0.15); color: var(--electric-bright); }
+  .plan li .ck .icon { width: 11px; height: 11px; stroke-width: 3; }
+  .plan .btn { margin-top: auto; width: 100%; }
+  .plan ul + .btn { margin-top: 32px; }
+  .plan-note { margin-top: 40px; text-align: center; font-size: 14px; color: var(--gray-500); }
+  .plan-note b { color: var(--gray-300); font-weight: 500; }
+
+  /* ---------- Gallery ---------- */
+  .masonry { columns: 3; column-gap: 20px; }
+  @media (max-width: 1023px) { .masonry { columns: 2; } }
+  @media (max-width: 639px) { .masonry { columns: 1; } }
+  .g-item { break-inside: avoid; margin-bottom: 20px; }
+  .g-frame {
+    position: relative; overflow: hidden; border-radius: 24px; border: 1px solid var(--line);
+    cursor: zoom-in;
+  }
+  .g-frame.tall { aspect-ratio: 3/4; } .g-frame.wide { aspect-ratio: 4/3; }
+  .g-frame img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s var(--ease); }
+  .g-frame:hover img { transform: scale(1.1); }
+  .g-overlay {
+    position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 20px; gap: 12px; opacity: 0; transition: opacity 0.5s;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent 55%);
+  }
+  .g-frame:hover .g-overlay { opacity: 1; }
+  .g-overlay p { font-size: 14px; font-weight: 500; max-width: 75%; }
+  .g-overlay .zoom {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .g-overlay .zoom .icon { width: 16px; height: 16px; }
+
+  /* ---------- FAQ ---------- */
+  .faq-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  .faq-item { border: 1px solid var(--line); background: var(--card); border-radius: 16px; overflow: hidden; transition: all 0.3s; }
+  .faq-item.open { border-color: var(--line-strong); background: var(--card-hover); }
+  .faq-q {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 20px 24px; background: none; border: none; color: #fff; text-align: left;
+    font-size: 15px; font-weight: 600;
+  }
+  .faq-q .pl {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line-strong); color: var(--gray-400);
+    transition: all 0.3s var(--ease);
+  }
+  .faq-item.open .pl {
+    transform: rotate(45deg);
+    border-color: rgba(47,125,255,0.4); background: rgba(47,125,255,0.15); color: var(--electric-bright);
+  }
+  .faq-q .pl .icon { width: 15px; height: 15px; }
+  .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s var(--ease); }
+  .faq-a p { padding: 0 24px 24px; font-size: 14px; color: var(--gray-400); }
+
+  /* ---------- CTA banner ---------- */
+  .cta-outer { padding: 100px 0; }
+  .cta {
+    position: relative; overflow: hidden; text-align: center;
+    border: 1px solid var(--line); background: var(--card); border-radius: 40px;
+    padding: 100px 32px;
+  }
+  @media (max-width: 639px) { .cta { padding: 72px 24px; border-radius: 28px; } }
+  .cta .blob {
+    position: absolute; width: 520px; height: 520px; border-radius: 50%;
+    filter: blur(140px); pointer-events: none;
+  }
+  .cta .blob.b1 { top: -190px; left: 20%; background: rgba(47,125,255,0.2); animation: drift1 18s ease-in-out infinite; }
+  .cta .blob.b2 { bottom: -190px; right: 20%; background: rgba(16,185,129,0.15); animation: drift2 22s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100% { transform: translate(-15%, -8%); } 50% { transform: translate(15%, 8%); } }
+  @keyframes drift2 { 0%,100% { transform: translate(12%, 6%); } 50% { transform: translate(-12%, -6%); } }
+  .cta .kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; color: var(--electric-bright); }
+  .cta h2 {
+    margin: 20px auto 0; max-width: 760px;
+    font-size: clamp(2.3rem, 5.5vw, 3.8rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance;
+  }
+  .cta p { margin: 24px auto 0; max-width: 560px; color: var(--gray-400); font-size: clamp(1rem, 1.4vw, 1.1rem); }
+  .cta .hero-ctas { margin-top: 40px; }
+  .cta > .inner { position: relative; }
+
+  /* ---------- Contact ---------- */
+  .contact-section { border-top: 1px solid var(--line); background: rgba(17,17,17,0.4); }
+  .contact-grid { display: grid; grid-template-columns: 2fr 3fr; gap: 24px; }
+  @media (max-width: 1023px) { .contact-grid { grid-template-columns: 1fr; } }
+  .info-card { border: 1px solid var(--line); background: var(--card); border-radius: 24px; padding: 32px; }
+  .info-card h3 { font-size: 18px; font-weight: 600; }
+  .info-list { margin-top: 28px; display: flex; flex-direction: column; gap: 24px; }
+  .info-list li { display: flex; gap: 16px; align-items: flex-start; }
+  .info-ic {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .info-ic.blue { background: rgba(47,125,255,0.1); color: var(--electric-bright); }
+  .info-ic.green { background: rgba(16,185,129,0.1); color: var(--emerald); }
+  .info-list address, .info-list .txt { font-style: normal; font-size: 14px; color: var(--gray-400); align-self: center; }
+  .info-list address { align-self: flex-start; }
+  .hours { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  .hours div { display: flex; flex-wrap: wrap; column-gap: 12px; }
+  .hours dt { color: var(--gray-400); }
+  .hours dd { color: var(--gray-300); }
+  .map-card {
+    position: relative; margin-top: 24px; min-height: 230px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--card); border-radius: 24px;
+  }
+  .map-grid-bg {
+    position: absolute; inset: 0; opacity: 0.4;
+    background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .map-pin {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+  }
+  .pin-wrap { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .pin-wrap::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(47,125,255,0.25); animation: ping 2.4s ease-out infinite;
+  }
+  .pin {
+    position: relative; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--electric); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(47,125,255,0.5);
+  }
+  .pin .icon { width: 17px; height: 17px; }
+  .map-pin p { font-size: 14px; font-weight: 500; }
+  .map-pin small { font-size: 12px; color: var(--gray-500); }
+  .form-card { border: 1px solid var(--line); background: var(--card); border-radius: 24px; padding: 40px; display: flex; flex-direction: column; height: 100%; }
+  @media (max-width: 639px) { .form-card { padding: 28px; } }
+  .form-card h3 { font-size: 18px; font-weight: 600; }
+  .form-card .sub { margin-top: 6px; font-size: 14px; color: var(--gray-500); }
+  .form-grid { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 639px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid .full { grid-column: 1 / -1; }
+  .field label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 8px; }
+  .field input, .field textarea {
+    width: 100%; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03); padding: 12px 16px; font-size: 14px; color: #fff;
+    font-family: inherit; transition: all 0.3s; resize: none;
+  }
+  .field input::placeholder, .field textarea::placeholder { color: var(--gray-600); }
+  .field input:focus, .field textarea:focus {
+    outline: none; border-color: rgba(47,125,255,0.6); background: rgba(255,255,255,0.05);
+  }
+  .form-foot { margin-top: auto; padding-top: 32px; }
+  .form-foot .note { margin-top: 16px; font-size: 12px; color: var(--gray-600); }
+
+  /* ---------- Footer ---------- */
+  footer { border-top: 1px solid var(--line); padding: 64px 0 0; }
+  .footer-grid { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; }
+  .footer-brand { max-width: 360px; }
+  .footer-brand p { margin-top: 20px; font-size: 14px; color: var(--gray-500); }
+  .socials { margin-top: 24px; display: flex; gap: 12px; }
+  .socials a {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid var(--line); color: var(--gray-400);
+    display: flex; align-items: center; justify-content: center; transition: all 0.3s;
+  }
+  .socials a:hover { border-color: var(--line-strong); background: rgba(255,255,255,0.05); color: #fff; }
+  .socials .icon { width: 18px; height: 18px; }
+  .footer-col .hd { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gray-500); }
+  .footer-nav { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 56px; }
+  .footer-nav a { font-size: 14px; color: var(--gray-400); transition: color 0.2s; }
+  .footer-nav a:hover { color: #fff; }
+  .footer-col address { margin-top: 16px; font-style: normal; font-size: 14px; color: var(--gray-400); line-height: 1.7; }
+  .footer-col .c { margin-top: 12px; font-size: 14px; color: var(--gray-400); }
+  .footer-bottom {
+    margin-top: 56px; padding: 32px 0; border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .footer-bottom p { font-size: 12px; color: var(--gray-600); }
+</style>
+</head>
+<body>
+
+<!-- ============================ NAVBAR ============================ -->
+<div class="nav-wrap">
+  <nav class="main-nav" id="mainNav" aria-label="Main">
+    <a href="#home" aria-label="J Plus Fitness — home">
+      <span class="logo">
+        <span class="logo-mark">J+</span>
+        <span class="logo-text">J Plus Fitness<small>Central · Hong Kong</small></span>
+      </span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#home">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#services">Services</a></li>
+      <li><a href="#transformations">Transformations</a></li>
+      <li><a href="#trainers">Trainers</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#reviews">Reviews</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <a class="btn btn-primary btn-sm nav-cta" href="#contact">Book Consultation</a>
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-label="Open menu">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    </button>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#home">Home</a><a href="#about">About</a><a href="#services">Services</a>
+      <a href="#transformations">Transformations</a><a href="#trainers">Trainers</a>
+      <a href="#pricing">Pricing</a><a href="#reviews">Reviews</a><a href="#contact">Contact</a>
+      <a class="btn btn-primary" href="#contact">Book Consultation</a>
+    </div>
+  </nav>
+</div>
+
+<main>
+<!-- ============================ HERO ============================ -->
+<section class="hero" id="home">
+  <div class="hero-bg" id="heroBg">
+    <img src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=2400&auto=format&fit=crop" alt="Premium private training studio in low light" />
+  </div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-inner">
+    <div class="hero-anim" style="animation-delay:.1s">
+      <span class="badge">
+        <svg class="icon" style="width:12px;height:12px;fill:var(--emerald);stroke:var(--emerald)" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Rated 5.0 on Google · 27 five-star reviews
+      </span>
+    </div>
+
+    <h1 class="hero-anim" style="animation-delay:.2s">
+      <span class="text-gradient">Transform Your Body With </span><span class="text-gradient-electric">Hong Kong's Elite</span><span class="text-gradient"> Personal Trainers</span>
+    </h1>
+
+    <p class="hero-sub hero-anim" style="animation-delay:.35s">
+      Science-based, one-on-one coaching in the heart of Central. Personalized
+      programs, precise body-composition tracking and world-class trainers —
+      built entirely around you.
+    </p>
+
+    <div class="hero-ctas hero-anim" style="animation-delay:.5s">
+      <a class="btn btn-primary" href="#contact">
+        Book Your Free Consultation
+        <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+      <a class="btn btn-secondary" href="#gallery">
+        <svg class="icon" style="fill:currentColor" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Watch the Studio
+      </a>
+    </div>
+
+    <dl class="hero-stats glass hero-anim" style="animation-delay:.7s">
+      <div><dd class="num counter" data-target="500" data-suffix="+">0+</dd><dt class="lbl">Clients Transformed</dt></div>
+      <div><dd class="num counter" data-target="5" data-suffix="★" data-decimals="1">0.0★</dd><dt class="lbl">Google Rating</dt></div>
+      <div><dd class="num counter" data-target="10" data-suffix="+">0+</dd><dt class="lbl">Years of Experience</dt></div>
+      <div><dd class="num counter" data-target="100" data-suffix="%">0%</dd><dt class="lbl">Personalized Programs</dt></div>
+    </dl>
+  </div>
+
+  <div class="float-card left glass">
+    <div class="row">
+      <span class="ic">
+        <svg class="icon" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      </span>
+      <div><p class="t1">−8.4% Body Fat</p><p class="t2">Avg. client · 16 weeks</p></div>
+    </div>
+  </div>
+  <div class="float-card right glass">
+    <div class="row">
+      <span class="avatars">
+        <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=80&auto=format&fit=crop" alt="" />
+        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=80&auto=format&fit=crop" alt="" />
+        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=80&auto=format&fit=crop" alt="" />
+      </span>
+      <div>
+        <span class="stars-sm">
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </span>
+        <p class="t2">500+ clients transformed</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-hint" aria-hidden="true"><span></span></div>
+</section>
+
+<!-- ============================ TRUST ============================ -->
+<section class="trust" aria-label="Client trust">
+  <div class="container">
+    <div class="trust-inner reveal">
+      <div class="stars-lg">
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <h2>27+ Five-Star Reviews on Google</h2>
+      <p>A perfect 5.0 rating, earned one transformation at a time — from first-time trainees to competitive athletes across Hong Kong.</p>
+    </div>
+  </div>
+  <div class="marquee-wrap reveal">
+    <div class="marquee" id="marquee">
+      <!-- chips duplicated by JS for seamless loop -->
+    </div>
+  </div>
+</section>
+
+<!-- ============================ ABOUT ============================ -->
+<section class="section" id="about">
+  <div class="container">
+    <div class="about-grid">
+      <div class="about-img reveal">
+        <div class="frame">
+          <img src="https://images.unsplash.com/photo-1574680096145-d05b474e2155?q=80&w=1600&auto=format&fit=crop" alt="Coach guiding a client through a training session" />
+        </div>
+        <div class="about-stat glass">
+          <p class="big">98<span>%</span></p>
+          <p>of members hit their first milestone within 8 weeks</p>
+        </div>
+      </div>
+      <div class="about-copy">
+        <div class="reveal">
+          <span class="badge"><span class="dot green"></span>About J Plus Fitness</span>
+          <h2 class="text-gradient" style="margin-top:20px">Coaching Built on Science. Results Built to Last.</h2>
+          <p class="lead">
+            Tucked above Stanley Street in the heart of Central, J Plus Fitness is a
+            private personal-training studio — not a crowded commercial gym. Every
+            client trains one-on-one with an elite coach, following a program designed
+            from a full assessment of their body composition, movement and lifestyle.
+          </p>
+        </div>
+        <div class="feature-grid stagger">
+          <div class="feature">
+            <span class="ic"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+            <h3>Personalized Coaching</h3>
+            <p>No templates. Every program is engineered around your body, goals and schedule.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
+            <h3>Body Composition Analysis</h3>
+            <p>Regular scans of body fat and lean mass keep every decision data-driven.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg class="icon" viewBox="0 0 24 24"><path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/></svg></span>
+            <h3>Nutrition Guidance</h3>
+            <p>Practical eating strategies built for real life in Hong Kong — no crash diets.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg class="icon" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>
+            <h3>Sustainable Progress</h3>
+            <p>Long-term planning and habit coaching so results last well beyond the program.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ SERVICES ============================ -->
+<section class="section services" id="services">
+  <div class="grid-fade"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>What We Do</span>
+      <h2 class="text-gradient">Precision Programs for Every Goal</h2>
+      <p>Six core disciplines, one standard: measurable results delivered through elite one-on-one coaching.</p>
+    </div>
+    <div class="cards-3 stagger">
+      <article class="svc electric">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Personal Training</h3>
+        <p>One-on-one coaching engineered around your body, your schedule and your goals — never a template.</p>
+      </article>
+      <article class="svc emerald">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Weight Loss</h3>
+        <p>Sustainable fat-loss protocols combining resistance training, conditioning and precise nutrition.</p>
+      </article>
+      <article class="svc electric">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Muscle Gain</h3>
+        <p>Progressive hypertrophy programming with meticulous technique coaching for lean, lasting muscle.</p>
+      </article>
+      <article class="svc emerald">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Strength Training</h3>
+        <p>Build foundational strength with barbell fundamentals, periodized cycles and expert supervision.</p>
+      </article>
+      <article class="svc electric">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Body Fat Analysis</h3>
+        <p>Regular body-composition scans track lean mass and body fat, so every decision is data-driven.</p>
+      </article>
+      <article class="svc emerald">
+        <div class="glow"></div>
+        <div class="svc-top">
+          <span class="ic"><svg class="icon" style="width:24px;height:24px" viewBox="0 0 24 24"><path d="M7 21h10"/><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M11.38 12a2.4 2.4 0 0 1-.4-4.77 2.4 2.4 0 0 1 3.2-2.77 2.4 2.4 0 0 1 3.47-.63 2.4 2.4 0 0 1 3.37 3.37 2.4 2.4 0 0 1-1.1 3.7 2.51 2.51 0 0 1 .03 1.1"/><path d="m13 12 4-4"/></svg></span>
+          <svg class="icon arrow" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+        </div>
+        <h3>Nutrition Coaching</h3>
+        <p>Practical nutrition guidance built around Hong Kong life — no crash diets, just habits that hold.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ TRANSFORMATIONS ============================ -->
+<section class="section" id="transformations">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>Real Results</span>
+      <h2 class="text-gradient">Transformations That Speak for Themselves</h2>
+      <p>Drag the slider on each card. Every result below is tracked with professional body-composition analysis — verified, not guessed.</p>
+    </div>
+    <div class="cards-3 stagger">
+      <article class="tf-card">
+        <div class="ba">
+          <img src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=1200&auto=format&fit=crop" alt="Daniel C. after the Fat Loss + Strength program" />
+          <img class="before-img" src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=1200&auto=format&fit=crop" alt="Daniel C. before the Fat Loss + Strength program" />
+          <div class="divider"><span class="handle"><svg class="icon" viewBox="0 0 24 24"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span></div>
+          <span class="tag b">Before</span><span class="tag a">After</span>
+          <input type="range" min="0" max="100" value="50" aria-label="Compare before and after for Daniel C." />
+        </div>
+        <div class="tf-meta">
+          <div class="row1"><h3>Daniel C.</h3><span class="dur">16 weeks</span></div>
+          <p class="prog">Fat Loss + Strength</p>
+          <dl class="tf-metrics">
+            <div><dd class="v">−9.2%</dd><dt class="l">Body Fat</dt></div>
+            <div><dd class="v">+4.1 kg</dd><dt class="l">Lean Mass</dt></div>
+            <div><dd class="v">+65 kg</dd><dt class="l">Deadlift</dt></div>
+          </dl>
+        </div>
+      </article>
+      <article class="tf-card">
+        <div class="ba">
+          <img src="https://images.unsplash.com/photo-1550345332-09e3ac987658?q=80&w=1200&auto=format&fit=crop" alt="Rachel W. after the Body Recomposition program" />
+          <img class="before-img" src="https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=1200&auto=format&fit=crop" alt="Rachel W. before the Body Recomposition program" />
+          <div class="divider"><span class="handle"><svg class="icon" viewBox="0 0 24 24"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span></div>
+          <span class="tag b">Before</span><span class="tag a">After</span>
+          <input type="range" min="0" max="100" value="50" aria-label="Compare before and after for Rachel W." />
+        </div>
+        <div class="tf-meta">
+          <div class="row1"><h3>Rachel W.</h3><span class="dur">24 weeks</span></div>
+          <p class="prog">Body Recomposition</p>
+          <dl class="tf-metrics">
+            <div><dd class="v">−7.8%</dd><dt class="l">Body Fat</dt></div>
+            <div><dd class="v">−11 cm</dd><dt class="l">Waist</dt></div>
+            <div><dd class="v">+40 kg</dd><dt class="l">Squat</dt></div>
+          </dl>
+        </div>
+      </article>
+      <article class="tf-card">
+        <div class="ba">
+          <img src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=1200&auto=format&fit=crop" alt="Marcus L. after the Muscle Gain program" />
+          <img class="before-img" src="https://images.unsplash.com/photo-1434682881908-b43d0467b798?q=80&w=1200&auto=format&fit=crop" alt="Marcus L. before the Muscle Gain program" />
+          <div class="divider"><span class="handle"><svg class="icon" viewBox="0 0 24 24"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" y1="12" x2="22" y2="12"/></svg></span></div>
+          <span class="tag b">Before</span><span class="tag a">After</span>
+          <input type="range" min="0" max="100" value="50" aria-label="Compare before and after for Marcus L." />
+        </div>
+        <div class="tf-meta">
+          <div class="row1"><h3>Marcus L.</h3><span class="dur">20 weeks</span></div>
+          <p class="prog">Muscle Gain</p>
+          <dl class="tf-metrics">
+            <div><dd class="v">+6.4 kg</dd><dt class="l">Lean Mass</dt></div>
+            <div><dd class="v">+37 kg</dd><dt class="l">Bench Press</dt></div>
+            <div><dd class="v">−3.5%</dd><dt class="l">Body Fat</dt></div>
+          </dl>
+        </div>
+      </article>
+    </div>
+    <p class="tf-note">Placeholder imagery shown for mockup purposes. Individual results vary.</p>
+  </div>
+</section>
+
+<!-- ============================ COACHES ============================ -->
+<section class="section coaches-section" id="trainers">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>Meet the Coaches</span>
+      <h2 class="text-gradient">World-Class Coaching, One Client at a Time</h2>
+      <p>Certified, experienced and obsessed with detail — the team behind every transformation.</p>
+    </div>
+
+    <article class="coach-featured reveal">
+      <div class="photo">
+        <img src="https://images.unsplash.com/photo-1567013127542-490d757e51fc?q=80&w=1200&auto=format&fit=crop" alt="Park Sung-Kwang, Head Coach and Founder" />
+        <span class="badge">
+          <svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+          Featured Coach
+        </span>
+      </div>
+      <div class="coach-info">
+        <h3>Coach Park Sung-Kwang</h3>
+        <p class="role">Head Coach &amp; Founder · 12+ years coaching elite and everyday athletes</p>
+        <blockquote>
+          Every body tells a story. My job is to read it precisely — then rewrite it
+          with detail-oriented coaching, long-term planning and relentless consistency.
+        </blockquote>
+        <p class="coach-sub">Certifications</p>
+        <ul class="tag-list">
+          <li class="tag-cert"><svg class="icon" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>NSCA-CSCS</li>
+          <li class="tag-cert"><svg class="icon" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>Precision Nutrition L2</li>
+          <li class="tag-cert"><svg class="icon" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>FMS Level 2</li>
+        </ul>
+        <p class="coach-sub">Areas of Expertise</p>
+        <ul class="tag-list">
+          <li class="tag-exp">Body Recomposition</li>
+          <li class="tag-exp">Strength &amp; Conditioning</li>
+          <li class="tag-exp">Posture Correction</li>
+          <li class="tag-exp">Nutrition Periodization</li>
+        </ul>
+      </div>
+    </article>
+
+    <div class="coach-grid stagger">
+      <article class="coach-card">
+        <div class="photo"><img src="https://images.unsplash.com/photo-1571731956672-f2b94d7dd0cb?q=80&w=1200&auto=format&fit=crop" alt="Emily Chan, Senior Performance Coach" /></div>
+        <div class="body">
+          <h3>Emily Chan</h3>
+          <p class="role">Senior Performance Coach</p>
+          <p class="phil">Strong is a skill. I coach women and men to move better, lift smarter and build confidence that lasts outside the gym.</p>
+          <ul class="tag-list"><li class="tag-exp">Functional Strength</li><li class="tag-exp">Fat Loss</li><li class="tag-exp">Mobility</li></ul>
+        </div>
+      </article>
+      <article class="coach-card">
+        <div class="photo"><img src="https://images.unsplash.com/photo-1594381898411-846e7d193883?q=80&w=1200&auto=format&fit=crop" alt="Jason Ho, Strength and Conditioning Coach" /></div>
+        <div class="body">
+          <h3>Jason Ho</h3>
+          <p class="role">Strength &amp; Conditioning Coach</p>
+          <p class="phil">Numbers don't lie. I build athletes with progressive overload, honest tracking and technique before ego.</p>
+          <ul class="tag-list"><li class="tag-exp">Powerlifting</li><li class="tag-exp">Athletic Performance</li><li class="tag-exp">Conditioning</li></ul>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PROCESS ============================ -->
+<section class="section" id="process">
+  <div class="container process-wrap">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>The Method</span>
+      <h2 class="text-gradient">Your Journey, Engineered</h2>
+      <p>A proven six-step system that turns first consultations into lasting transformations.</p>
+    </div>
+    <ol class="timeline">
+      <li class="step left reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 01</span><h3>Consultation</h3><p>A private conversation about your goals, history, lifestyle and schedule — so we design around you.</p></div>
+      </li>
+      <li class="step right reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 02</span><h3>Assessment</h3><p>Full body-composition scan, movement screening and strength baseline. We measure everything.</p></div>
+      </li>
+      <li class="step left reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 03</span><h3>Personal Plan</h3><p>Your coach builds a fully individualized training and nutrition blueprint with clear milestones.</p></div>
+      </li>
+      <li class="step right reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 04</span><h3>Training</h3><p>Focused one-on-one sessions in a private studio — every rep coached, every detail refined.</p></div>
+      </li>
+      <li class="step left reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 05</span><h3>Progress Tracking</h3><p>Monthly re-assessments of body fat, lean mass and strength keep the plan honest and adaptive.</p></div>
+      </li>
+      <li class="step right reveal"><span class="node"></span>
+        <div class="step-card"><span class="no">STEP 06</span><h3>Transformation</h3><p>Visible, measurable, sustainable change — and the habits to keep it for life.</p></div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================ TESTIMONIALS ============================ -->
+<section class="section reviews-section" id="reviews">
+  <div class="reviews-glow"></div>
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>Client Reviews</span>
+      <h2 class="text-gradient">Loved by Clients Across Hong Kong</h2>
+      <p>Real words from real members — inspired by our 5.0-star Google reviews.</p>
+    </div>
+    <div class="reveal">
+      <div class="review-track" id="reviewTrack"><!-- populated by JS --></div>
+      <div class="rev-controls">
+        <button class="rev-arrow glass-bright" id="revPrev" aria-label="Previous reviews">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="rev-dots" id="revDots"></div>
+        <button class="rev-arrow glass-bright" id="revNext" aria-label="Next reviews">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PRICING ============================ -->
+<section class="section pricing-section" id="pricing">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>Membership</span>
+      <h2 class="text-gradient">Invest in the Only Body You'll Ever Own</h2>
+      <p>Transparent monthly programs. No joining fees, no lock-in contracts — just coaching that delivers.</p>
+    </div>
+    <div class="plans stagger">
+      <article class="plan">
+        <h3>Starter</h3><p class="tag">Begin your transformation</p>
+        <p class="price"><b>HK$4,800</b><span>/ month</span></p>
+        <ul>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>4 personal training sessions</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Initial body-composition scan</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Personalized training plan</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>WhatsApp coach support</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Post-workout protein shakes</li>
+        </ul>
+        <a class="btn btn-secondary" href="#contact">Get Started</a>
+      </article>
+      <article class="plan hot">
+        <span class="pop"><svg class="icon" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>Most Popular</span>
+        <h3>Premium</h3><p class="tag">Our most popular program</p>
+        <p class="price"><b>HK$8,800</b><span>/ month</span></p>
+        <ul>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>8 personal training sessions</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Monthly body-composition analysis</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Full nutrition coaching</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Priority scheduling</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Quarterly program reviews</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Post-workout protein shakes</li>
+        </ul>
+        <a class="btn btn-primary" href="#contact">Start Premium</a>
+      </article>
+      <article class="plan">
+        <h3>Elite</h3><p class="tag">Total transformation, fully managed</p>
+        <p class="price"><b>HK$14,800</b><span>/ month</span></p>
+        <ul>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>12 personal training sessions</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Weekly body-composition analysis</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Custom meal planning</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>24/7 coach access</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Recovery &amp; mobility sessions</li>
+          <li><span class="ck"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Guest passes for a partner</li>
+        </ul>
+        <a class="btn btn-secondary" href="#contact">Go Elite</a>
+      </article>
+    </div>
+    <p class="plan-note">All plans include your initial consultation and body-composition assessment — <b>free of charge</b>.</p>
+  </div>
+</section>
+
+<!-- ============================ GALLERY ============================ -->
+<section class="section" id="gallery">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>The Studio</span>
+      <h2 class="text-gradient">A Space Designed for Focus</h2>
+      <p>Premium equipment, immaculate facilities and a private atmosphere in the heart of Central.</p>
+    </div>
+    <div class="masonry stagger">
+      <div class="g-item"><figure class="g-frame tall">
+        <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1400&auto=format&fit=crop" alt="Main training floor with premium equipment" />
+        <div class="g-overlay"><p>Main training floor with premium equipment</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame wide">
+        <img src="https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=1400&auto=format&fit=crop" alt="Functional training zone" />
+        <div class="g-overlay"><p>Functional training zone</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame wide">
+        <img src="https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=1400&auto=format&fit=crop" alt="Strength equipment detail" />
+        <div class="g-overlay"><p>Strength equipment detail</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame tall">
+        <img src="https://images.unsplash.com/photo-1571902943202-507ec2618e8f?q=80&w=1400&auto=format&fit=crop" alt="Private coaching studio" />
+        <div class="g-overlay"><p>Private coaching studio</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame wide">
+        <img src="https://images.unsplash.com/photo-1558611848-73f7eb4001a1?q=80&w=1400&auto=format&fit=crop" alt="Cardio and conditioning area" />
+        <div class="g-overlay"><p>Cardio and conditioning area</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame wide">
+        <img src="https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=1400&auto=format&fit=crop" alt="Coached barbell session" />
+        <div class="g-overlay"><p>Coached barbell session</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame tall">
+        <img src="https://images.unsplash.com/photo-1548690312-e3b507d8c110?q=80&w=1400&auto=format&fit=crop" alt="Kettlebell functional training" />
+        <div class="g-overlay"><p>Kettlebell functional training</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+      <div class="g-item"><figure class="g-frame wide">
+        <img src="https://images.unsplash.com/photo-1574680096145-d05b474e2155?q=80&w=1400&auto=format&fit=crop" alt="One-on-one personal training" />
+        <div class="g-overlay"><p>One-on-one personal training</p><span class="zoom glass-bright"><svg class="icon" viewBox="0 0 24 24"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg></span></div>
+      </figure></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FAQ ============================ -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>FAQ</span>
+      <h2 class="text-gradient">Questions, Answered</h2>
+      <p>Everything you need to know before your first session.</p>
+    </div>
+    <div class="faq-wrap stagger">
+      <div class="faq-item open">
+        <button class="faq-q" aria-expanded="true">Can complete beginners join?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>Absolutely — most of our clients start as beginners. Every program begins with a full assessment, and your coach scales every exercise to your current level. You'll never be thrown into a workout you're not ready for.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Do you provide nutrition advice?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>Yes. Nutrition coaching is built into our Premium and Elite plans, and available as an add-on for Starter. We focus on sustainable habits designed around Hong Kong lifestyles — not crash diets.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">How long until I see results?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>Most clients feel a difference in energy and strength within 2–3 weeks. Visible body-composition changes typically show at 6–8 weeks, verified by our regular body-fat analysis — we track everything, so progress is never guesswork.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">How often should I train?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>For most goals, 2–3 coached sessions per week is the sweet spot. Your coach will design the exact frequency around your recovery, schedule and target timeline during your consultation.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">Where are you located?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>We're on the 6th floor of Abdoolally House, 20 Stanley Street, Central — two minutes from Central MTR station, in the heart of Hong Kong.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" aria-expanded="false">What should I bring to my first session?<span class="pl"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></button>
+        <div class="faq-a"><p>Just training clothes and shoes. We provide towels, filtered water and a complimentary post-workout protein shake after every session.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CTA BANNER ============================ -->
+<section class="cta-outer" aria-label="Call to action">
+  <div class="container">
+    <div class="cta reveal">
+      <div class="blob b1"></div><div class="blob b2"></div>
+      <div class="grid-fade"></div>
+      <div class="inner">
+        <p class="kicker">Limited coaching slots available</p>
+        <h2 class="text-gradient">Start Your Fitness Transformation Today</h2>
+        <p>Your free consultation and body-composition assessment are one click away. The best time to start was yesterday — the second best is now.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#contact">
+            Book Your Free Consultation
+            <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+          <a class="btn btn-secondary" href="#pricing">View Membership Plans</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CONTACT ============================ -->
+<section class="section contact-section" id="contact">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="badge"><span class="dot"></span>Get in Touch</span>
+      <h2 class="text-gradient">Visit Us in Central</h2>
+      <p>Two minutes from Central MTR. Drop by, call, or send us a message — we'd love to meet you.</p>
+    </div>
+    <div class="contact-grid">
+      <div class="reveal">
+        <div class="info-card">
+          <h3>J Plus Fitness Co Ltd</h3>
+          <ul class="info-list">
+            <li>
+              <span class="info-ic blue"><svg class="icon" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <address>6/F Abdoolally House<br />20 Stanley Street<br />Central, Hong Kong</address>
+            </li>
+            <li>
+              <span class="info-ic green"><svg class="icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+              <span class="txt">+852 5969 8277</span>
+            </li>
+            <li>
+              <span class="info-ic blue"><svg class="icon" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
+              <span class="txt">hello@jplusfitness.hk</span>
+            </li>
+            <li>
+              <span class="info-ic green"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+              <dl class="hours">
+                <div><dt>Monday – Friday</dt><dd>7:00 am – 10:00 pm</dd></div>
+                <div><dt>Saturday</dt><dd>8:00 am – 8:00 pm</dd></div>
+                <div><dt>Sunday &amp; Holidays</dt><dd>9:00 am – 6:00 pm</dd></div>
+              </dl>
+            </li>
+          </ul>
+        </div>
+        <div class="map-card">
+          <div class="map-grid-bg"></div>
+          <div class="map-pin">
+            <span class="pin-wrap"><span class="pin"><svg class="icon" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span></span>
+            <p>20 Stanley Street, Central</p>
+            <small>Interactive map placeholder</small>
+          </div>
+        </div>
+      </div>
+      <form class="form-card reveal" onsubmit="return false;">
+        <h3>Book Your Free Consultation</h3>
+        <p class="sub">Tell us about your goals — a coach will reply within one business day.</p>
+        <div class="form-grid">
+          <div class="field"><label for="f-name">Name</label><input id="f-name" placeholder="Your name" /></div>
+          <div class="field"><label for="f-phone">Phone</label><input id="f-phone" placeholder="+852 ..." /></div>
+          <div class="field full"><label for="f-email">Email</label><input id="f-email" type="email" placeholder="you@example.com" /></div>
+          <div class="field full"><label for="f-goal">Your Goal</label><textarea id="f-goal" rows="5" placeholder="e.g. Lose body fat, build strength, prepare for an event..."></textarea></div>
+        </div>
+        <div class="form-foot">
+          <button class="btn btn-primary" type="submit">
+            Send Message
+            <svg class="icon" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+          </button>
+          <p class="note">Mockup only — this form does not submit data.</p>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <span class="logo">
+          <span class="logo-mark">J+</span>
+          <span class="logo-text">J Plus Fitness<small>Central · Hong Kong</small></span>
+        </span>
+        <p>Hong Kong's premier private personal-training studio. Science-based coaching, measurable results, and a 5.0-star standard of service in the heart of Central.</p>
+        <div class="socials">
+          <a href="#home" aria-label="Instagram"><svg class="icon" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg></a>
+          <a href="#home" aria-label="Facebook"><svg class="icon" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+          <a href="#home" aria-label="YouTube"><svg class="icon" viewBox="0 0 24 24"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg></a>
+        </div>
+      </div>
+      <nav class="footer-col" aria-label="Footer">
+        <p class="hd">Explore</p>
+        <div class="footer-nav">
+          <a href="#home">Home</a><a href="#about">About</a><a href="#services">Services</a>
+          <a href="#transformations">Transformations</a><a href="#trainers">Trainers</a>
+          <a href="#pricing">Pricing</a><a href="#reviews">Reviews</a><a href="#contact">Contact</a>
+        </div>
+      </nav>
+      <div class="footer-col">
+        <p class="hd">Visit</p>
+        <address>6/F Abdoolally House<br />20 Stanley Street<br />Central, Hong Kong</address>
+        <p class="c">+852 5969 8277</p>
+        <p class="c">hello@jplusfitness.hk</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© <span id="year">2026</span> J Plus Fitness Co Ltd. All rights reserved.</p>
+      <p>Design mockup — for presentation purposes only.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Navbar ---------- */
+  var nav = document.getElementById("mainNav");
+  var onScrollNav = function () {
+    nav.classList.toggle("scrolled", window.scrollY > 24);
+  };
+  window.addEventListener("scroll", onScrollNav, { passive: true });
+  onScrollNav();
+
+  var menuBtn = document.getElementById("menuBtn");
+  var mobileMenu = document.getElementById("mobileMenu");
+  menuBtn.addEventListener("click", function () {
+    var open = mobileMenu.classList.toggle("open");
+    menuBtn.setAttribute("aria-expanded", String(open));
+    menuBtn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  });
+  mobileMenu.addEventListener("click", function (e) {
+    if (e.target.closest("a")) {
+      mobileMenu.classList.remove("open");
+      menuBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  /* ---------- Hero parallax ---------- */
+  var heroBg = document.getElementById("heroBg");
+  window.addEventListener("scroll", function () {
+    var y = window.scrollY;
+    if (y < window.innerHeight * 1.2) {
+      heroBg.style.transform = "translateY(" + y * 0.18 + "px)";
+    }
+  }, { passive: true });
+
+  /* ---------- Scroll reveal ---------- */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("in");
+        io.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: "-60px 0px" });
+  document.querySelectorAll(".reveal, .stagger").forEach(function (el) { io.observe(el); });
+  document.querySelectorAll(".stagger").forEach(function (group) {
+    Array.prototype.forEach.call(group.children, function (child, i) {
+      child.style.transitionDelay = (i * 0.09) + "s";
+    });
+  });
+
+  /* ---------- Animated counters ---------- */
+  var counterIo = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      counterIo.unobserve(entry.target);
+      var el = entry.target;
+      var target = parseFloat(el.dataset.target);
+      var suffix = el.dataset.suffix || "";
+      var decimals = parseInt(el.dataset.decimals || "0", 10);
+      var start = null;
+      var dur = 2000;
+      function tick(ts) {
+        if (!start) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        var eased = 1 - Math.pow(1 - p, 4);
+        el.textContent = (target * eased).toFixed(decimals) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }, { rootMargin: "-40px 0px" });
+  document.querySelectorAll(".counter").forEach(function (el) { counterIo.observe(el); });
+
+  /* ---------- Trust marquee ---------- */
+  var highlights = [
+    "Detail-oriented coaching", "Muscle gain", "Fat loss", "Friendly environment",
+    "Long-term progress", "Professional trainers", "Free protein shakes", "Body fat analysis"
+  ];
+  var starSvg = '<svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  var marquee = document.getElementById("marquee");
+  highlights.concat(highlights).forEach(function (text) {
+    var chip = document.createElement("span");
+    chip.className = "chip glass-bright";
+    chip.innerHTML = starSvg + text;
+    marquee.appendChild(chip);
+  });
+
+  /* ---------- Before/After sliders ---------- */
+  document.querySelectorAll(".ba").forEach(function (ba) {
+    var range = ba.querySelector("input[type=range]");
+    var before = ba.querySelector(".before-img");
+    var divider = ba.querySelector(".divider");
+    range.addEventListener("input", function () {
+      var v = range.value;
+      before.style.clipPath = "inset(0 " + (100 - v) + "% 0 0)";
+      divider.style.left = v + "%";
+    });
+  });
+
+  /* ---------- Testimonial carousel ---------- */
+  var reviews = [
+    { name: "Victoria Lee", meta: "Evening Group Program · 1 year", tag: "Transformation",
+      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop",
+      quote: "Since joining the evening group workout last December, I've experienced amazing changes. My strength, energy and body composition have completely transformed." },
+    { name: "M. Y.", meta: "Personal Training · 1 month in", tag: "Detail-Oriented Coaching",
+      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop",
+      quote: "My friend recommended this gym and I very much enjoy Coach Park's PT sessions. He is detail-oriented and helps plan out your long-term goals." },
+    { name: "Hye Jung Cho", meta: "Strength Program · 1 year", tag: "Strength Gains",
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop",
+      quote: "I have been working with Sung for a year and he has always been a great help improving my strength and physical abilities. The facilities are extremely well kept." },
+    { name: "Alex T.", meta: "Body Recomposition · 6 months", tag: "Fat Loss",
+      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop",
+      quote: "Dropped 8% body fat while gaining muscle. The regular body-fat analysis kept me accountable — and the free protein shakes after sessions don't hurt either." },
+    { name: "Sarah K.", meta: "Beginner Program · 4 months", tag: "Friendly Environment",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop",
+      quote: "As a complete beginner I was nervous, but the environment is so friendly and professional. Every session is planned around my progress. Best decision I've made." },
+    { name: "Kenneth W.", meta: "Muscle Gain · 8 months", tag: "Muscle Gain",
+      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=400&auto=format&fit=crop",
+      quote: "Serious, science-based muscle-gain programming. My lifts have never progressed this consistently. Coach Park plans months ahead — you can feel the expertise." }
+  ];
+
+  var PER_PAGE = 3;
+  var pages = Math.ceil(reviews.length / PER_PAGE);
+  var page = 0;
+  var track = document.getElementById("reviewTrack");
+  var dotsWrap = document.getElementById("revDots");
+
+  function starRow() {
+    var s = '<div style="display:flex;gap:4px" aria-label="5 out of 5 stars">';
+    for (var i = 0; i < 5; i++) {
+      s += '<svg class="icon" style="width:16px;height:16px;fill:var(--emerald);stroke:var(--emerald)" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    }
+    return s + "</div>";
+  }
+
+  function renderPage() {
+    var slice = reviews.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+    track.innerHTML = slice.map(function (r) {
+      return '<figure class="rev glass">' +
+        '<div class="rev-top">' + starRow() + '<span class="rev-tag">' + r.tag + "</span></div>" +
+        "<blockquote>“" + r.quote + "”</blockquote>" +
+        '<figcaption><img src="' + r.avatar + '" alt="" loading="lazy" />' +
+        '<div><p class="nm">' + r.name + '</p><p class="mt">' + r.meta + "</p></div></figcaption>" +
+        "</figure>";
+    }).join("");
+    Array.prototype.forEach.call(dotsWrap.children, function (dot, i) {
+      dot.classList.toggle("active", i === page);
+    });
+  }
+
+  function goTo(p) {
+    page = ((p % pages) + pages) % pages;
+    track.classList.add("swap");
+    setTimeout(function () {
+      renderPage();
+      track.classList.remove("swap");
+    }, 250);
+  }
+
+  for (var d = 0; d < pages; d++) {
+    (function (idx) {
+      var dot = document.createElement("button");
+      dot.className = "rev-dot";
+      dot.setAttribute("aria-label", "Go to review page " + (idx + 1));
+      dot.addEventListener("click", function () { goTo(idx); resetAuto(); });
+      dotsWrap.appendChild(dot);
+    })(d);
+  }
+  renderPage();
+
+  document.getElementById("revPrev").addEventListener("click", function () { goTo(page - 1); resetAuto(); });
+  document.getElementById("revNext").addEventListener("click", function () { goTo(page + 1); resetAuto(); });
+
+  var auto = setInterval(function () { goTo(page + 1); }, 8000);
+  function resetAuto() {
+    clearInterval(auto);
+    auto = setInterval(function () { goTo(page + 1); }, 8000);
+  }
+
+  /* ---------- FAQ accordion ---------- */
+  document.querySelectorAll(".faq-item").forEach(function (item) {
+    var btn = item.querySelector(".faq-q");
+    var panel = item.querySelector(".faq-a");
+    if (item.classList.contains("open")) {
+      panel.style.maxHeight = panel.scrollHeight + "px";
+    }
+    btn.addEventListener("click", function () {
+      var isOpen = item.classList.contains("open");
+      document.querySelectorAll(".faq-item.open").forEach(function (other) {
+        other.classList.remove("open");
+        other.querySelector(".faq-q").setAttribute("aria-expanded", "false");
+        other.querySelector(".faq-a").style.maxHeight = "0px";
+      });
+      if (!isOpen) {
+        item.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+        panel.style.maxHeight = panel.scrollHeight + "px";
+      }
+    });
+  });
+
+  /* ---------- Footer year ---------- */
+  document.getElementById("year").textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
