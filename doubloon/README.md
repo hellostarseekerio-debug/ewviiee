@@ -28,6 +28,11 @@ a payment link one click from the moment the daily limit hits.
 - **Upgrade path** — set `STRIPE_PAYMENT_LINK` and every upgrade button on the
   landing page and in the 429 flow points at it. No Stripe SDK needed to take
   the first dollar.
+- **Stripe webhook → Pro unlock** — `/api/stripe/webhook` verifies the
+  `Stripe-Signature` header (raw-body HMAC, no Stripe SDK), records
+  `checkout.session.completed` sessions, and the Payment Link's redirect to
+  `/success.html?session_id={CHECKOUT_SESSION_ID}` redeems the session for a
+  signed 31-day Pro cookie that bypasses the daily meter.
 - **Prompt-caching-friendly** — the system prompt is byte-stable and carries a
   `cache_control` breakpoint, so cache reads kick in as the prompt grows.
 - **Demo mode** — with no `ANTHROPIC_API_KEY`, the server streams a canned
@@ -63,12 +68,19 @@ and streams the reply back.
 
 ## Go-live checklist (in order of revenue impact)
 
-1. **Stripe Payment Link** — create one, set `STRIPE_PAYMENT_LINK`. Revenue: on.
-2. **Real accounts** — swap the anonymous cookie for email magic-link auth;
-   store plan + usage in Postgres, meter in Redis (the in-memory `Map` dies
-   with the process and doesn't share across replicas).
-3. **Stripe webhooks** — `checkout.session.completed` → mark the account Pro
-   and lift the cap automatically.
+1. **Stripe Payment Link** — create one, set `STRIPE_PAYMENT_LINK`, point its
+   confirmation redirect at `/success.html?session_id={CHECKOUT_SESSION_ID}`,
+   and add a webhook endpoint for `checkout.session.completed` →
+   `/api/stripe/webhook` (set `STRIPE_WEBHOOK_SECRET`). Local testing:
+   `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
+   Revenue: on.
+2. **Real accounts** — swap the anonymous + Pro cookies for email magic-link
+   auth; store plan + usage in Postgres, meter in Redis (the in-memory `Map`s
+   die with the process and don't share across replicas — pin `APP_SECRET`
+   either way so Pro cookies survive restarts).
+3. **Subscription lifecycle** — handle `customer.subscription.deleted` /
+   `invoice.payment_failed` to revoke Pro, instead of relying on the 31-day
+   cookie expiry as the de facto renewal check.
 4. **Abuse controls** — per-IP limits alongside per-cookie, max concurrent
    streams per user, and a moderation pass if you open signups wide.
 5. **Unit economics** — Pro at $25/mo is profitable as long as an average user

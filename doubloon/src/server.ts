@@ -13,6 +13,11 @@ const MODEL = process.env.CHAT_MODEL ?? "claude-opus-4-8";
 const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 8192);
 const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT ?? 15);
 const PAYMENT_LINK = process.env.STRIPE_PAYMENT_LINK ?? "";
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+// Signs the Pro cookie. The per-boot fallback means Pro sessions don't survive
+// a restart unless APP_SECRET is pinned in .env.
+const APP_SECRET = process.env.APP_SECRET ?? crypto.randomBytes(32).toString("hex");
+const PRO_DAYS = Number(process.env.PRO_DAYS ?? 31);
 
 const HAS_CREDENTIALS = Boolean(
   process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN,
@@ -69,6 +74,62 @@ function checkAndCount(uid: string): { ok: boolean; remaining: number } {
   if (count >= FREE_DAILY_LIMIT) return { ok: false, remaining: 0 };
   usage.set(uid, { day, count: count + 1 });
   return { ok: true, remaining: FREE_DAILY_LIMIT - count - 1 };
+}
+
+// ---------------------------------------------------------------------------
+// Pro plan — Stripe Payment Link → webhook records the checkout session id →
+// the success page redeems it → signed HttpOnly cookie bypasses the meter.
+// In-memory like the usage meter; same single-process caveat (see README).
+// ---------------------------------------------------------------------------
+const paidSessions = new Map<string, { email: string; activatedAt: number | null }>();
+
+function hmac(payload: string): string {
+  return crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
+}
+
+function makeProCookie(): string {
+  const exp = Date.now() + PRO_DAYS * 86_400_000;
+  return `${exp}.${hmac(`pro:${exp}`)}`;
+}
+
+function isPro(req: Request): boolean {
+  const match = /(?:^|;\s*)dbl_pro=([^;]+)/.exec(req.headers.cookie ?? "");
+  if (!match) return false;
+  const [expStr, sig] = match[1].split(".");
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Date.now() || !sig) return false;
+  const expected = hmac(`pro:${exp}`);
+  return (
+    sig.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
+  );
+}
+
+// Stripe-Signature: t=<unix>,v1=<hmac>[,v1=<hmac>...] — HMAC-SHA256 of
+// "<t>.<raw body>" with the webhook signing secret.
+function verifyStripeSignature(payload: Buffer, header: string): boolean {
+  let timestamp = "";
+  const signatures: string[] = [];
+  for (const part of header.split(",")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    if (key === "t") timestamp = value;
+    else if (key === "v1") signatures.push(value);
+  }
+  if (!timestamp || signatures.length === 0) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+  const expected = crypto
+    .createHmac("sha256", STRIPE_WEBHOOK_SECRET)
+    .update(`${timestamp}.`)
+    .update(payload)
+    .digest("hex");
+  return signatures.some(
+    (s) =>
+      s.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -130,8 +191,70 @@ async function streamDemoReply(res: Response, lastUserMessage: string): Promise<
 // App
 // ---------------------------------------------------------------------------
 const app = express();
+
+// Raw body is required for signature verification, so this route is mounted
+// ahead of the global JSON parser.
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    if (!STRIPE_WEBHOOK_SECRET) {
+      res.status(503).json({ error: "webhook_not_configured" });
+      return;
+    }
+    const header = req.headers["stripe-signature"];
+    if (typeof header !== "string" || !verifyStripeSignature(req.body, header)) {
+      res.status(400).json({ error: "bad_signature" });
+      return;
+    }
+    let event: {
+      type?: string;
+      data?: { object?: { id?: string; customer_details?: { email?: string } } };
+    };
+    try {
+      event = JSON.parse(req.body.toString("utf8"));
+    } catch {
+      res.status(400).json({ error: "bad_payload" });
+      return;
+    }
+    if (event.type === "checkout.session.completed" && event.data?.object?.id) {
+      paidSessions.set(event.data.object.id, {
+        email: event.data.object.customer_details?.email ?? "",
+        activatedAt: null,
+      });
+      console.log(`💰 checkout completed: ${event.data.object.id}`);
+    }
+    res.json({ received: true });
+  },
+);
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+// Redeemed by success.html after the Stripe Payment Link redirects back with
+// ?session_id={CHECKOUT_SESSION_ID}. Idempotent: session ids are unguessable,
+// and re-visiting the success page shouldn't strand a paying customer.
+app.get("/api/activate", (req, res) => {
+  const sid = String(req.query.session_id ?? "");
+  const record = sid ? paidSessions.get(sid) : undefined;
+  if (!record) {
+    res.status(404).json({
+      error: "unknown_session",
+      message: "Payment not found yet — webhooks can lag a few seconds. Refresh to retry.",
+    });
+    return;
+  }
+  record.activatedAt = record.activatedAt ?? Date.now();
+  res.setHeader(
+    "Set-Cookie",
+    `dbl_pro=${makeProCookie()}; Path=/; Max-Age=${PRO_DAYS * 86_400}; HttpOnly; SameSite=Lax`,
+  );
+  res.json({ ok: true, plan: "pro", days: PRO_DAYS });
+});
+
+app.get("/api/me", (req, res) => {
+  res.json({ plan: isPro(req) ? "pro" : "free" });
+});
 
 app.get("/api/config", (_req, res) => {
   res.json({
@@ -149,8 +272,9 @@ app.post("/api/chat", async (req, res) => {
     return;
   }
 
+  const pro = isPro(req);
   const uid = getUid(req, res);
-  const quota = checkAndCount(uid);
+  const quota = pro ? { ok: true, remaining: -1 } : checkAndCount(uid);
   if (!quota.ok) {
     res.status(429).json({
       error: "quota_exceeded",

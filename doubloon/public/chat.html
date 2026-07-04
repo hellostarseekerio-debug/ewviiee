@@ -67,9 +67,13 @@
   const history = [];
   let paymentLink = '';
 
-  fetch('/api/config').then(r => r.json()).then(cfg => {
+  Promise.all([
+    fetch('/api/config').then(r => r.json()),
+    fetch('/api/me').then(r => r.json()),
+  ]).then(([cfg, me]) => {
     paymentLink = cfg.paymentLink;
-    quotaEl.textContent = cfg.demoMode ? 'demo mode' : cfg.model;
+    quotaEl.textContent = me.plan === 'pro' ? 'Pro ⚜'
+      : (cfg.demoMode ? 'demo mode' : cfg.model);
   }).catch(() => {});
 
   // Minimal, safe rendering: escape everything, then re-introduce code blocks,
@@ -152,7 +156,8 @@
             log.scrollTop = log.scrollHeight;
           } else if (ev.type === 'done') {
             if (typeof ev.remaining === 'number') {
-              quotaEl.textContent = ev.remaining + ' free msgs left today';
+              quotaEl.textContent = ev.remaining < 0 ? 'Pro ⚜'
+                : ev.remaining + ' free msgs left today';
             }
           } else if (ev.type === 'error') {
             answer += '\n\n**' + ev.message + '**';
