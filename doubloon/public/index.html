@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doubloon — AI chat that pays for the ship</title>
+<style>
+  :root {
+    --bg: #0d1321; --panel: #161d2f; --line: #263047;
+    --ink: #e8e6df; --muted: #9aa3b5; --gold: #d9a441; --gold-dark: #b8862f;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.6 Georgia, 'Times New Roman', serif; }
+  a { color: var(--gold); text-decoration: none; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+  .logo { font-size: 20px; font-weight: bold; letter-spacing: .5px; }
+  .logo span { color: var(--gold); }
+  nav a { margin-left: 22px; color: var(--muted); font-size: 15px; }
+  nav a.cta { color: #0d1321; background: var(--gold); padding: 8px 16px; border-radius: 6px; font-weight: bold; }
+  .hero { text-align: center; padding: 84px 0 60px; }
+  .hero h1 { font-size: 46px; line-height: 1.15; max-width: 720px; margin: 0 auto 20px; }
+  .hero h1 em { color: var(--gold); font-style: italic; }
+  .hero p { color: var(--muted); max-width: 560px; margin: 0 auto 32px; font-size: 18px; }
+  .btn { display: inline-block; background: var(--gold); color: #0d1321; font-weight: bold;
+         padding: 13px 28px; border-radius: 8px; font-size: 17px; }
+  .btn:hover { background: var(--gold-dark); }
+  .btn.ghost { background: transparent; color: var(--gold); border: 1px solid var(--gold); margin-left: 12px; }
+  .strip { color: var(--muted); text-align: center; font-size: 14px; padding-bottom: 48px; }
+  h2 { text-align: center; font-size: 30px; margin: 56px 0 8px; }
+  .sub { text-align: center; color: var(--muted); margin-bottom: 36px; }
+  .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; padding-bottom: 72px; }
+  .tier { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  .tier.hot { border-color: var(--gold); position: relative; }
+  .tier.hot::before { content: "MOST PLUNDERED"; position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    background: var(--gold); color: #0d1321; font: bold 11px/1 sans-serif; letter-spacing: 1px; padding: 5px 10px; border-radius: 4px; }
+  .tier h3 { font-size: 18px; margin-bottom: 6px; }
+  .price { font-size: 38px; font-weight: bold; margin: 8px 0 2px; }
+  .price small { font-size: 15px; color: var(--muted); font-weight: normal; }
+  .tier ul { list-style: none; margin: 18px 0 24px; padding: 0; color: var(--muted); font-size: 15px; }
+  .tier li { padding: 5px 0 5px 24px; position: relative; }
+  .tier li::before { content: "⚜"; position: absolute; left: 0; color: var(--gold); }
+  .tier .btn { width: 100%; text-align: center; }
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; padding: 26px 0 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⚓ Dou<span>bloon</span></div>
+    <nav>
+      <a href="#pricing">Pricing</a>
+      <a class="cta" href="/chat.html">Open the app</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>An AI first mate that <em>earns its keep</em>.</h1>
+    <p>Doubloon is a fast, streaming AI chat built on Claude. Ask anything, ship faster,
+       and stop paying for six tools that each do half the job.</p>
+    <a class="btn" href="/chat.html">Start chatting free</a>
+    <a class="btn ghost" href="#pricing">See pricing</a>
+  </section>
+  <p class="strip">No signup for the free tier. Streams answers token by token. Your history stays in your browser.</p>
+
+  <h2 id="pricing">Pricing</h2>
+  <p class="sub">One number matters: 3,334 crew members on Pro is $1M ARR. Climb aboard.</p>
+
+  <div class="tiers">
+    <div class="tier">
+      <h3>Deckhand</h3>
+      <div class="price">$0<small>/mo</small></div>
+      <ul>
+        <li><span id="free-limit">15</span> messages per day</li>
+        <li>Full streaming chat</li>
+        <li>Markdown &amp; code answers</li>
+      </ul>
+      <a class="btn ghost" style="margin:0" href="/chat.html">Start free</a>
+    </div>
+    <div class="tier hot">
+      <h3>Pro</h3>
+      <div class="price">$25<small>/mo</small></div>
+      <ul>
+        <li>Effectively unlimited messages</li>
+        <li>Longer answers, bigger context</li>
+        <li>Priority lane at peak hours</li>
+      </ul>
+      <a class="btn" id="upgrade-pro" href="/chat.html">Upgrade to Pro</a>
+    </div>
+    <div class="tier">
+      <h3>Crew</h3>
+      <div class="price">$99<small>/mo</small></div>
+      <ul>
+        <li>5 seats, shared billing</li>
+        <li>Everything in Pro</li>
+        <li>Email support from a human</li>
+      </ul>
+      <a class="btn ghost" style="margin:0" id="upgrade-crew" href="/chat.html">Assemble the crew</a>
+    </div>
+  </div>
+
+  <footer>⚓ Doubloon · built on the Claude API · $1M ARR or Davy Jones' locker</footer>
+</div>
+<script>
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    document.getElementById('free-limit').textContent = cfg.freeDailyLimit;
+    if (cfg.paymentLink) {
+      document.getElementById('upgrade-pro').href = cfg.paymentLink;
+      document.getElementById('upgrade-crew').href = cfg.paymentLink;
+    }
+  }).catch(() => {});
+</script>
+</body>
+</html>
