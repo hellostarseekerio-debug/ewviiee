@@ -44,10 +44,23 @@ body {
   @apply font-body text-[0.62rem] md:text-xs font-medium uppercase tracking-widest2 text-gold/80;
 }
 
-/* Cantonese display type needs more breathing room than Cormorant */
-:lang(zh-Hant) .display-title {
+/* CJK display type needs more breathing room than Cormorant */
+:lang(zh-Hant) .display-title,
+:lang(zh-Hans) .display-title {
   letter-spacing: 0.06em;
   line-height: 1.28;
+}
+
+/* Mandarin (Simplified) swaps the CJK face from Noto Serif TC to SC */
+html[lang='zh-Hans-CN'] .font-tc {
+  font-family: 'Noto Serif SC', serif;
+}
+html[lang='zh-Hans-CN'] .font-display {
+  font-family: 'Cormorant Garamond', 'Noto Serif SC', serif;
+}
+html[lang='zh-Hans-CN'] .font-body,
+html[lang='zh-Hans-CN'] body {
+  font-family: 'Inter', 'Noto Serif SC', sans-serif;
 }
 
 .display-title {

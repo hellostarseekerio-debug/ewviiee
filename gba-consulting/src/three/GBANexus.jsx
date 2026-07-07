@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
-import { CITIES, cityPosition } from '../data/cities'
+import { CITIES, cityPosition, cityLabel, cityTech } from '../data/cities'
 import { sceneState, HOME_CAMERA, HOME_LOOK } from './sceneState'
 import { useLang } from '../i18n/LanguageContext'
 
@@ -271,7 +271,7 @@ function CityNode({ city }) {
           style={{ transform: `translateY(${city.hub ? 26 : 20}px)`, opacity: hovered ? 0 : 1 }}
         >
           <span className={`whitespace-nowrap font-body uppercase tracking-[0.3em] ${city.hub ? 'text-[11px] text-gold/90' : 'text-[9px] text-mist/70'}`}>
-            {lang === 'zh' ? city.zh : city.en}
+            {cityLabel(city, lang)}
           </span>
         </div>
       </Html>
@@ -280,9 +280,9 @@ function CityNode({ city }) {
         <Html center distanceFactor={7.5} zIndexRange={[40, 30]} style={{ pointerEvents: 'none' }}>
           <div className="glass-strong w-56 -translate-y-24 rounded-xl px-5 py-4 text-left">
             <p className="font-display text-lg leading-tight text-gold-bright">
-              {lang === 'zh' ? city.zh : city.en}
+              {cityLabel(city, lang)}
               <span className="ml-2 font-body text-[9px] uppercase tracking-[0.25em] text-mist">
-                {lang === 'zh' ? city.en : city.zh}
+                {lang === 'en' ? city.zh : city.en}
               </span>
             </p>
             <div className="mt-2 flex items-baseline gap-2">
@@ -291,7 +291,7 @@ function CityNode({ city }) {
             </div>
             <p className="mt-1.5 border-t border-gold/15 pt-1.5 font-body text-[10px] leading-relaxed text-mist">
               <span className="text-gold/70">{t('cityCard.tech')} — </span>
-              {lang === 'zh' ? city.techZh : city.techEn}
+              {cityTech(city, lang)}
             </p>
           </div>
         </Html>

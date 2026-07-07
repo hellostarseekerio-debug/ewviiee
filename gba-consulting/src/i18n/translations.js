@@ -1,7 +1,8 @@
 /**
- * Bilingual engine — i18next-style structured resource object.
- * zh is Hong Kong Business Traditional Chinese (商務繁體中文 · 港式用語),
- * written to HK professional register, not machine translation.
+ * Multilingual engine — i18next-style structured resource object.
+ * zh is Hong Kong Business Traditional Chinese (商務繁體中文 · 港式用語);
+ * cn is Mandarin Business Simplified Chinese (商务简体中文 · 内地用语).
+ * Both written to professional register, not machine translation.
  */
 export const translations = {
   en: {
@@ -205,6 +206,108 @@ export const translations = {
       line: 'GBA Consulting · GBA Partners — 香港 · 深圳 · 廣州',
       rights: '版權所有，不得轉載。',
       credo: '精準 · 創新 · 全球連接',
+    },
+  },
+
+  cn: {
+    meta: { locale: 'cn', htmlLang: 'zh-Hans-CN' },
+    nav: {
+      philosophy: '理念',
+      pillars: '三大支柱',
+      vault: '数据宝库',
+      contact: '专属通道',
+      brand: 'GBA 咨询',
+      brandBy: '高雅妮 主理',
+    },
+    preloader: {
+      establishing: '正在建立枢纽连接',
+      cities: '同步大湾区十一城',
+    },
+    hero: {
+      eyebrow: 'GBA Consulting × GBA Partners · 香港',
+      titleA: '领航全球资本，',
+      titleB: '对接大湾区机遇。',
+      sub: '一家立足香港金融枢纽、深耕大湾区科技生态的私人咨询机构 — 由高雅妮（Anita Ko）亲自主理。',
+      cta: '申请专属通道',
+      explore: '探索枢纽',
+      hint: '移至星图节点 — 香港 · 深圳 · 广州',
+      scroll: '向下浏览',
+    },
+    cityCard: {
+      gdp: '地区生产总值',
+      tech: '科技产值',
+    },
+    philosophy: {
+      eyebrow: '高雅妮的理念',
+      quote: '“资本本身不会跨境，跨境的是信念。我的工作，是为全球信念在大湾区找到精准的落点。”',
+      body: '高雅妮（Anita Ko）身处香港传统金融实力与大湾区十一城高增长科技生态的交汇点，以三项恒常原则立业：执行精准、架构创新、全球连接。',
+      values: ['精准', '创新', '全球连接'],
+      signature: 'Anita Ko · 高雅妮',
+      role: 'GBA Partners 创始人兼董事总经理',
+    },
+    pillars: {
+      eyebrow: '卓越三大支柱',
+      title: '于无声处，建立优势。',
+      items: [
+        {
+          num: '01',
+          title: '战略咨询',
+          desc: '涵盖香港、深圳及广东九市的跨境市场进入、资本架构及合规咨询 — 未动身，先成局。',
+          tags: ['市场进入', '合规咨询', '资本战略'],
+        },
+        {
+          num: '02',
+          title: '伙伴网络',
+          desc: '直达国有企业、单一家族办公室及科技独角兽的专属人脉。引荐只做一次 — 而且必须做对。',
+          tags: ['国有企业', '家族办公室', '科技独角兽'],
+        },
+        {
+          num: '03',
+          title: '项目落地',
+          desc: '在大湾区枢纽内亲身执行：牌照申请、公司设立、人才配置及正式运营。结果落实之前，我们绝不离场。',
+          tags: ['牌照申请', '公司设立', '落地执行'],
+        },
+      ],
+    },
+    vault: {
+      eyebrow: '大湾区数据宝库',
+      title: '一个枢纽，十一座城市。',
+      gdpLabel: '合计地区生产总值',
+      gdpValue: 1.67,
+      gdpUnit: '万亿美元',
+      sub: '旋转数据宝库 — 每根金柱代表一座城市，高度按其生产总值等比呈现。',
+      stats: [
+        { value: '8,600万+', label: '人口' },
+        { value: '11', label: '互联城市' },
+        { value: '70+', label: '独角兽企业' },
+        { value: '第一', label: '新股融资中心 — 港交所' },
+      ],
+      terms: ['跨境金融', '合规咨询', '家族办公室委托', 'QFLP / QDLP 架构'],
+    },
+    contact: {
+      eyebrow: '联络通道',
+      title: '会员制 · 申请入会。',
+      sub: 'GBA Partners 每季度仅接受限量委托，所有申请均由高雅妮亲自审阅。',
+      name: '姓名',
+      namePh: '例：陈雅丽',
+      org: '机构 / 家族办公室',
+      orgPh: '例：子午资本',
+      mandate: '委托性质',
+      mandateOptions: ['市场进入 — 大湾区', '资本部署 / 联合投资', '家族办公室设立', '战略伙伴对接', '其他 — 保密'],
+      scale: '预计规模',
+      scaleOptions: ['100万至1,000万美元', '1,000万至5,000万美元', '5,000万至2.5亿美元', '2.5亿美元以上'],
+      brief: '保密简述',
+      briefPh: '请以保密方式简述您的目标……',
+      submit: '提交申请',
+      submitting: '密封处理中……',
+      done: '申请已收到。',
+      doneSub: '本所将于两个香港工作日内回复。',
+      privacy: '所有资料均按严格保密原则处理。',
+    },
+    footer: {
+      line: 'GBA Consulting · GBA Partners — 香港 · 深圳 · 广州',
+      rights: '版权所有，不得转载。',
+      credo: '精准 · 创新 · 全球连接',
     },
   },
 }

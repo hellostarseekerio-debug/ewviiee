@@ -4,7 +4,7 @@ import { Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { CITIES } from '../data/cities'
+import { CITIES, cityLabel } from '../data/cities'
 import { useLang } from '../i18n/LanguageContext'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -58,14 +58,14 @@ function GdpColumn({ city, index, total, lang }) {
 
       <Html center distanceFactor={10} position={[0, -0.35, 0]} style={{ pointerEvents: 'none' }} zIndexRange={[10, 0]}>
         <span className="whitespace-nowrap font-body text-[9px] uppercase tracking-[0.22em] text-mist/80">
-          {lang === 'zh' ? city.zh : city.en}
+          {cityLabel(city, lang)}
         </span>
       </Html>
 
       {hovered && (
         <Html center distanceFactor={8} position={[0, height + 0.6, 0]} style={{ pointerEvents: 'none' }} zIndexRange={[30, 20]}>
           <div className="glass-strong whitespace-nowrap rounded-lg px-4 py-2.5 text-center">
-            <p className="font-display text-base text-gold-bright">{lang === 'zh' ? city.zh : city.en}</p>
+            <p className="font-display text-base text-gold-bright">{cityLabel(city, lang)}</p>
             <p className="font-display text-lg text-platinum">US${city.gdp}B</p>
           </div>
         </Html>

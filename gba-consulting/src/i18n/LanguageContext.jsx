@@ -3,23 +3,28 @@ import { translations } from './translations'
 
 const LanguageContext = createContext(null)
 
-export function LanguageProvider({ children }) {
-  const [lang, setLang] = useState('en')
+export const LANGS = [
+  { code: 'en', label: 'EN' },
+  { code: 'zh', label: '繁' },
+  { code: 'cn', label: '简' },
+]
 
-  const toggle = useCallback(() => {
-    setLang((l) => {
-      const next = l === 'en' ? 'zh' : 'en'
-      document.documentElement.lang = translations[next].meta.htmlLang
-      return next
-    })
+export function LanguageProvider({ children }) {
+  const [lang, setLangState] = useState('en')
+
+  const setLang = useCallback((code) => {
+    if (!translations[code]) return
+    document.documentElement.lang = translations[code].meta.htmlLang
+    setLangState(code)
   }, [])
 
   const value = useMemo(() => {
     // t('pillars.items') — dot-path lookup into the structured resource object
     const t = (path) =>
       path.split('.').reduce((node, key) => (node == null ? node : node[key]), translations[lang])
-    return { lang, toggle, t, isZh: lang === 'zh' }
-  }, [lang, toggle])
+    // isZh = any Chinese variant (drives CJK typography treatment)
+    return { lang, setLang, t, isZh: lang !== 'en' }
+  }, [lang, setLang])
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
