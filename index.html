@@ -8,7 +8,7 @@
 <meta property="og:title" content="SHIH JI HUA SIN 世紀華欣 — The Industrial Nexus" />
 <meta property="og:description" content="Global trading, logistics and supply chain management from the heart of the Greater Bay Area." />
 <meta property="og:type" content="website" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2305070d'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%23c9a227' font-family='serif'%3E華%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2305070d'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='%23ff5a5c' font-family='serif'%3E華%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -24,8 +24,8 @@
   --ink-dim: #97a0b4;
   --ink-faint: #5b6478;
   --line: rgba(232, 236, 244, 0.09);
-  --accent: #8ab4ff;
-  --accent-soft: rgba(138, 180, 255, 0.14);
+  --accent: #ff5a5c;
+  --accent-soft: rgba(255, 90, 92, 0.14);
   --glass: rgba(13, 18, 30, 0.55);
   --glass-brd: rgba(232, 236, 244, 0.12);
   --font-display: 'Space Grotesk', 'Noto Sans TC', sans-serif;
@@ -40,8 +40,8 @@ html[lang="zh-Hans"] {
   --font-display: 'Noto Sans SC', 'Space Grotesk', sans-serif;
   --font-body: 'Noto Sans SC', 'Space Grotesk', sans-serif;
 }
-html[data-theme="hk"] { --accent: #e8b64c; --accent-soft: rgba(232, 182, 76, 0.14); }
-html[data-theme="cn"] { --accent: #ff7a6e; --accent-soft: rgba(255, 122, 110, 0.14); }
+html[data-theme="hk"] { --accent: #6ea8ff; --accent-soft: rgba(110, 168, 255, 0.16); }
+html[data-theme="cn"] { --accent: #ff4f6d; --accent-soft: rgba(255, 79, 109, 0.14); }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -842,9 +842,9 @@ const I18N = {
 
 /* Per-language 3D palette: chrome tint + accent for nodes/arcs/bloomables */
 const THEMES = {
-  en: { accent: 0x8ab4ff, chromeA: 0x0a1224, chromeB: 0x3d5a96, glow: 0xbcd4ff },
-  hk: { accent: 0xe8b64c, chromeA: 0x0f0b06, chromeB: 0x6b4f1d, glow: 0xffd98a },
-  cn: { accent: 0xff7a6e, chromeA: 0x120705, chromeB: 0x772d24, glow: 0xffb0a6 },
+  en: { accent: 0xff5a5c, chromeA: 0x0a1124, chromeB: 0x2f4fa8, glow: 0xff9b9d },
+  hk: { accent: 0x6ea8ff, chromeA: 0x180810 , chromeB: 0x8f2438, glow: 0xa8ccff },
+  cn: { accent: 0xff4f6d, chromeA: 0x0c0a22, chromeB: 0x3b3f9e, glow: 0xffa3b0 },
 };
 
 let currentLang = 'en';
