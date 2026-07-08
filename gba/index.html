@@ -462,6 +462,87 @@ footer.site {
 #city-tip .ct-time { font-size: 0.8rem; color: var(--jade); font-weight: 700; margin-top: 5px; }
 #city-tip .ct-tag { font-size: 0.78rem; color: var(--ink-faint); margin-top: 2px; }
 
+/* ============================================================
+   FANCY LAYER — glow, ink cursor, sheens, tilt, progress
+   ============================================================ */
+
+/* glowing titles */
+#hero h1 { animation: titleGlow 4.2s ease-in-out infinite; }
+@keyframes titleGlow {
+  0%, 100% { text-shadow: 0 1px 0 var(--paper), 0 0 26px rgba(179, 64, 42, 0.16), 0 0 70px rgba(168, 132, 44, 0.12); }
+  50% { text-shadow: 0 1px 0 var(--paper), 0 0 38px rgba(179, 64, 42, 0.42), 0 0 110px rgba(168, 132, 44, 0.32); }
+}
+#hero h1 em { animation: emGlow 4.2s ease-in-out infinite; }
+@keyframes emGlow {
+  0%, 100% { text-shadow: 0 0 18px rgba(179, 64, 42, 0.35); }
+  50% { text-shadow: 0 0 34px rgba(179, 64, 42, 0.8), 0 0 90px rgba(168, 132, 44, 0.55); }
+}
+h2 { text-shadow: 0 0 34px rgba(179, 64, 42, 0.16); }
+
+/* per-character reveal on the hero title */
+.word { display: inline-block; white-space: nowrap; }
+.ch { display: inline-block; white-space: pre; opacity: 0; transform: translateY(0.55em) rotate(5deg) scale(0.9); animation: chIn 0.75s var(--ease) forwards; }
+@keyframes chIn { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ch { animation: none; opacity: 1; transform: none; } #hero h1, #hero h1 em { animation: none; } }
+
+/* kicker rule draws itself in */
+.kicker::after { transform: scaleX(0); transform-origin: left; transition: transform 1.2s var(--ease) 0.25s; }
+.kicker.on::after { transform: scaleX(1); }
+
+/* hero CTA pulse ring */
+.hero-ctas .btn-seal { animation: ctaPulse 2.4s ease-out infinite; }
+@keyframes ctaPulse {
+  0% { outline: 2px solid rgba(179, 64, 42, 0.55); outline-offset: 2px; }
+  70%, 100% { outline: 2px solid rgba(179, 64, 42, 0); outline-offset: 16px; }
+}
+
+/* sheen sweep across every card */
+.svc-item, .pcard, .lcard, .tst, .value-card { position: relative; overflow: hidden; }
+.svc-item::after, .pcard::after, .lcard::after, .tst::after, .value-card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.6) 50%, transparent 60%);
+  transform: translateX(-130%) skewX(-8deg);
+  transition: transform 0.9s var(--ease);
+}
+.svc-item:hover::after, .pcard:hover::after, .lcard:hover::after, .tst:hover::after, .value-card:hover::after { transform: translateX(130%) skewX(-8deg); }
+
+/* seal-chop value glyphs */
+.value-card .vc-zh {
+  width: 54px; height: 54px; flex: none;
+  border: 2.5px solid var(--seal); border-radius: 10px;
+  display: grid; place-items: center; align-self: center;
+  font-size: 1.55rem; background: var(--seal-soft);
+  transform: rotate(-6deg);
+  transition: transform 0.45s var(--ease), background 0.45s, color 0.45s, box-shadow 0.45s;
+}
+.value-card:hover .vc-zh { transform: rotate(0deg) scale(1.1); background: var(--seal); color: var(--paper); box-shadow: 0 0 26px rgba(179, 64, 42, 0.45); }
+
+/* Latin caption reads horizontally — vertical stacking is for CJK only */
+html[lang="en"] .vertical-cap {
+  writing-mode: horizontal-tb; text-orientation: mixed;
+  border-left: 0; border-bottom: 1.5px solid var(--rule);
+  padding: 0 0 14px; font-size: 1.02rem; letter-spacing: 0.26em; text-transform: uppercase;
+}
+
+/* scroll progress ribbon */
+#scrollbar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 130; pointer-events: none; }
+#scrollbar i { display: block; height: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--seal), var(--gold)); box-shadow: 0 0 12px rgba(179, 64, 42, 0.5); }
+
+/* trailing ink cursor (fine pointers only) */
+#cur-ring, #cur-dot { display: none; position: fixed; pointer-events: none; z-index: 150; transform: translate(-50%, -50%); }
+body.fancy-cursor #cur-ring, body.fancy-cursor #cur-dot { display: block; }
+#cur-ring {
+  width: 34px; height: 34px; border: 1.5px solid var(--seal); border-radius: 50%;
+  opacity: 0.55; transition: width 0.25s var(--ease), height 0.25s var(--ease), opacity 0.3s, background 0.3s;
+}
+#cur-ring.big { width: 58px; height: 58px; opacity: 0.95; background: rgba(179, 64, 42, 0.07); }
+#cur-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--seal); }
+
+/* floating hero eyebrow */
+.hero-eyebrow { animation: bob 5s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .hero-eyebrow, .hero-ctas .btn-seal { animation: none; } }
+
 /* skip link for a11y */
 .skip {
   position: fixed; top: -60px; left: 16px; z-index: 300;
@@ -474,6 +555,10 @@ footer.site {
 <body>
 
 <a class="skip" href="#main" data-i18n="skip">跳至主要內容</a>
+
+<div id="scrollbar" aria-hidden="true"><i></i></div>
+<div id="cur-ring" aria-hidden="true"></div>
+<div id="cur-dot" aria-hidden="true"></div>
 
 <div id="pre" aria-hidden="true">
   <div class="pre-stamp">機</div>
@@ -1222,6 +1307,72 @@ form.addEventListener('submit', async e => {
   }
 });
 
+/* ---------- hero title: per-character ink reveal ---------- */
+function splitHeroChars() {
+  const h = document.querySelector('#hero h1');
+  if (!h) return;
+  (function walk(node) {
+    [...node.childNodes].forEach(ch => {
+      if (ch.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        // tokenise: Latin words stay unbreakable, CJK splits per character
+        ch.textContent.split(/(\s+)/).forEach(tok => {
+          if (!tok) return;
+          if (/^\s+$/.test(tok)) { frag.appendChild(document.createTextNode(' ')); return; }
+          const isCJK = /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(tok);
+          const host = isCJK ? frag : Object.assign(document.createElement('span'), { className: 'word' });
+          [...tok].forEach(c => {
+            const sp = document.createElement('span');
+            sp.className = 'ch';
+            sp.textContent = c;
+            host.appendChild(sp);
+          });
+          if (!isCJK) frag.appendChild(host);
+        });
+        node.replaceChild(frag, ch);
+      } else if (ch.nodeType === 1 && ch.tagName !== 'BR') walk(ch);
+    });
+  })(h);
+  h.querySelectorAll('.ch').forEach((sp, i) => { sp.style.animationDelay = `${0.1 + i * 0.04}s`; });
+}
+langListeners.push(splitHeroChars);
+
+/* ---------- scroll progress ribbon ---------- */
+const sbar = document.querySelector('#scrollbar i');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  sbar.style.transform = `scaleX(${max > 0 ? scrollY / max : 0})`;
+}, { passive: true });
+
+/* ---------- trailing ink cursor + card tilt (fine pointers) ---------- */
+const finePointer = matchMedia('(pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (finePointer) {
+  document.body.classList.add('fancy-cursor');
+  const ring = document.getElementById('cur-ring');
+  const dot = document.getElementById('cur-dot');
+  let mx = innerWidth / 2, my = innerHeight / 2, rx = mx, ry = my;
+  addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
+  (function curLoop() {
+    requestAnimationFrame(curLoop);
+    rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16;
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+    dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+  })();
+  document.addEventListener('mouseover', e => {
+    ring.classList.toggle('big', !!e.target.closest('a, button, summary, input, select, textarea, .chip'));
+  });
+
+  document.querySelectorAll('.svc-item, .lcard, .tst').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const tx = ((e.clientY - r.top) / r.height - 0.5) * -3.5;
+      const ty = ((e.clientX - r.left) / r.width - 0.5) * 3.5;
+      card.style.transform = `perspective(900px) rotateX(${tx}deg) rotateY(${ty}deg) translate(-4px, -4px)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+  });
+}
+
 /* ---------- boot ---------- */
 let saved = 'cmn';
 try { saved = localStorage.getItem('gbaoc-lang') || 'cmn'; } catch (e) { /* private mode */ }
@@ -1367,6 +1518,7 @@ if (renderer) {
 
   /* city pillars + glow discs */
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0xb3402a, roughness: 0.4, metalness: 0.1 });
+  const pinCaps = [];
   const cityGroup = new THREE.Group();
   scene.add(cityGroup);
   cityPos.forEach((p, i) => {
@@ -1378,6 +1530,7 @@ if (renderer) {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), pillarMat);
     cap.position.set(p.x, h + 0.04, p.z);
     cityGroup.add(cap);
+    pinCaps[i] = cap;
     const disc = new THREE.Mesh(
       new THREE.RingGeometry(0.07, 0.1, 28),
       new THREE.MeshBasicMaterial({ color: 0xb3402a, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
@@ -1498,6 +1651,97 @@ if (renderer) {
     scene.userData.rose = rose;
   }
 
+  /* red-sail junk boat crossing the bay */
+  const boat = new THREE.Group();
+  {
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x223c39, roughness: 0.6 });
+    const sailMat = new THREE.MeshStandardMaterial({ color: 0x9c3f28, roughness: 0.7, side: THREE.DoubleSide });
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.09), hullMat);
+    hull.position.y = 0.03;
+    boat.add(hull);
+    const bow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.09), hullMat);
+    bow.position.set(0.14, 0.05, 0); bow.rotation.z = 0.35;
+    boat.add(bow);
+    const stern = bow.clone(); stern.position.x = -0.14; stern.rotation.z = -0.35;
+    boat.add(stern);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.32, 6), hullMat);
+    mast.position.set(0, 0.2, 0);
+    boat.add(mast);
+    const sailShape = new THREE.Shape();
+    sailShape.moveTo(0.005, 0.02); sailShape.lineTo(0.13, 0.06);
+    sailShape.lineTo(0.11, 0.28); sailShape.lineTo(0.005, 0.33); sailShape.closePath();
+    const sail = new THREE.Mesh(new THREE.ShapeGeometry(sailShape), sailMat);
+    sail.position.set(0.005, 0.045, 0);
+    boat.add(sail);
+    const sail2 = sail.clone();
+    sail2.scale.set(-0.72, 0.72, 1);
+    sail2.position.set(-0.005, 0.06, 0);
+    boat.add(sail2);
+    scene.add(boat);
+  }
+
+  /* drifting clouds (camera-facing sprites) */
+  const clouds = [];
+  {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const cx = cv.getContext('2d');
+    const grad = cx.createRadialGradient(64, 64, 6, 64, 64, 60);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    cx.fillStyle = grad;
+    cx.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(cv);
+    for (let i = 0; i < (isMobile ? 4 : 7); i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.3 + Math.random() * 0.25, depthWrite: false }));
+      sp.scale.set(1.5 + Math.random() * 1.5, 0.55 + Math.random() * 0.45, 1);
+      sp.position.set((Math.random() - 0.5) * 8.5, 1.7 + Math.random() * 1.1, (Math.random() - 0.5) * 4.5);
+      sp.userData.v = 0.03 + Math.random() * 0.04;
+      clouds.push(sp);
+      scene.add(sp);
+    }
+  }
+
+  /* gulls circling the harbour */
+  const birds = new THREE.Group();
+  {
+    const wm = new THREE.MeshBasicMaterial({ color: 0x16302e, side: THREE.DoubleSide });
+    const wg = new THREE.PlaneGeometry(0.085, 0.022);
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Group();
+      const w1 = new THREE.Mesh(wg, wm); w1.position.x = -0.045;
+      const w2 = new THREE.Mesh(wg, wm); w2.position.x = 0.045;
+      b.add(w1, w2);
+      b.userData = { w1, w2, phase: i * 2.1 };
+      birds.add(b);
+    }
+    scene.add(birds);
+  }
+
+  /* policy hotspot beams: rise from every pin at the map view */
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: { uOp: { value: 0 }, uColor: { value: new THREE.Color(0xb3402a) } },
+    vertexShader: /* glsl */`
+      varying float vY;
+      void main() { vY = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */`
+      precision highp float;
+      varying float vY;
+      uniform float uOp;
+      uniform vec3 uColor;
+      void main() { gl_FragColor = vec4(uColor, (1.0 - vY) * uOp); }`,
+  });
+  {
+    const bg = new THREE.CylinderGeometry(0.017, 0.017, 1.15, 8, 1, true);
+    cityPos.forEach((p, i) => {
+      if (i === 0) return;
+      const beam = new THREE.Mesh(bg, beamMat);
+      beam.position.set(p.x, 0.62, p.z);
+      scene.add(beam);
+    });
+  }
+
   /* ---------- interaction: city tooltips ---------- */
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2(-10, -10);
@@ -1601,6 +1845,44 @@ if (renderer) {
       scene.userData.rose.rotation.y = et * 0.05;
       motes.rotation.y = et * 0.012;
       motes.position.y = Math.sin(et * 0.4) * 0.05;
+
+      // junk boat: elliptical course with bob, roll and true heading
+      const ba = et * 0.07;
+      const bx = -0.5 + Math.cos(ba) * 1.5, bz = 0.35 + Math.sin(ba) * 0.85;
+      boat.position.set(bx, 0.015 + Math.sin(et * 1.3) * 0.012, bz);
+      boat.rotation.y = Math.atan2(-Math.cos(ba) * 0.85, -Math.sin(ba) * 1.5);
+      boat.rotation.z = Math.sin(et * 1.1) * 0.045;
+
+      // clouds drift with the trade wind
+      clouds.forEach(sp => {
+        sp.position.x += sp.userData.v * dt;
+        if (sp.position.x > 4.6) sp.position.x = -4.6;
+      });
+
+      // gulls circle and flap
+      birds.children.forEach(b => {
+        const { w1, w2, phase } = b.userData;
+        const a = et * 0.22 + phase;
+        b.position.set(0.6 + Math.cos(a) * 1.15, 1.45 + Math.sin(et * 0.9 + phase) * 0.1, -0.55 + Math.sin(a) * 0.7);
+        b.rotation.y = -a;
+        const flap = Math.sin(et * 9 + phase) * 0.55;
+        w1.rotation.z = flap;
+        w2.rotation.z = -flap;
+      });
+    }
+
+    // policy beams glow strongest at the top-down chart view
+    beamMat.uniforms.uOp.value = 0.55 * Math.exp(-Math.pow((smooth - 0.55) / 0.09, 2));
+
+    // hovered pin swells
+    pinCaps.forEach((cap, i) => {
+      if (!cap) return;
+      const target = i === hovered ? 1.9 : 1;
+      const k = cap.scale.x + (target - cap.scale.x) * Math.min(1, dt * 10);
+      cap.scale.setScalar(k);
+    });
+
+    if (!reducedMotion) {
       // breathe the city discs
       cityGroup.children.forEach((ch, i) => {
         if (ch.geometry && ch.geometry.type === 'RingGeometry') {
