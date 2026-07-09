@@ -109,9 +109,6 @@ body.no-webgl .stage-fallback { display: block; }
   position: fixed; inset: 0; z-index: 60; pointer-events: none;
   background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(3, 1, 8, 0.6));
 }
-.letterbox { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 80; transition: height 0.8s var(--ease); pointer-events: none; }
-.letterbox.top { top: 0; } .letterbox.bot { bottom: 0; }
-body.playing .letterbox { height: clamp(28px, 5vh, 56px); }
 
 /* ---------- opening title card ---------- */
 #pre {
@@ -155,14 +152,6 @@ header.on { background: rgba(7, 3, 18, 0.72); backdrop-filter: blur(16px); -webk
 .brand-name { display: flex; flex-direction: column; line-height: 1.25; }
 .brand-en { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: 0.14em; }
 .brand-zh { font-size: 10.5px; letter-spacing: 0.32em; color: var(--dim); }
-.rec {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 10.5px; letter-spacing: 0.28em; color: var(--dim); text-transform: uppercase;
-}
-.rec i { width: 9px; height: 9px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 10px #ff3b5c; animation: blink 1.4s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0.15; } }
-.tc { font-variant-numeric: tabular-nums; font-size: 11.5px; letter-spacing: 0.14em; color: var(--dim); }
-@media (max-width: 860px) { .rec, .tc { display: none; } }
 
 .lang { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(13, 7, 34, 0.6); }
 .lang button {
@@ -335,7 +324,7 @@ html[lang="zh-Hant-HK"] h2, html[lang="zh-Hans"] h2 { font-family: var(--body); 
 footer.site {
   position: relative; z-index: 10; border-top: 1px solid var(--line);
   background: rgba(3, 1, 8, 0.85); backdrop-filter: blur(12px);
-  padding: 50px clamp(20px, 6vw, 90px) 120px;
+  padding: 50px clamp(20px, 6vw, 90px) 64px;
 }
 .foot { max-width: 1160px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 30px; justify-content: space-between; }
 .foot .f-brand { font-family: var(--display); font-weight: 800; font-size: 1.2rem; letter-spacing: 0.1em; }
@@ -345,56 +334,6 @@ footer.site {
 .foot .f-right b { color: var(--dim); font-weight: 500; }
 @media (max-width: 700px) { .foot .f-right { text-align: left; } }
 
-/* ============================================================
-   THE PLAYER BAR — the site is the film
-   ============================================================ */
-#player {
-  position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: 18px; z-index: 110;
-  width: min(920px, calc(100vw - 28px));
-  border: 1px solid var(--line); border-radius: 16px;
-  background: rgba(7, 3, 18, 0.82);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(34, 211, 238, 0.07);
-  padding: 10px 16px 12px;
-  display: flex; align-items: center; gap: 14px;
-}
-#playBtn {
-  flex: none; width: 42px; height: 42px; border-radius: 50%;
-  border: 0; background: var(--grad); color: var(--void);
-  display: grid; place-items: center;
-  box-shadow: 0 0 22px rgba(34, 211, 238, 0.45);
-  transition: transform 0.25s var(--ease), box-shadow 0.25s;
-}
-#playBtn:hover { transform: scale(1.1); box-shadow: 0 0 34px rgba(232, 121, 249, 0.6); }
-#playBtn svg { width: 16px; height: 16px; }
-#playBtn .ic-pause { display: none; }
-body.playing #playBtn .ic-play { display: none; }
-body.playing #playBtn .ic-pause { display: block; }
-.player-mid { flex: 1; min-width: 0; }
-.player-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 7px; }
-#chapLabel { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; color: var(--cyan); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
-#tcLabel { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; flex: none; }
-.seek-wrap { position: relative; height: 18px; display: flex; align-items: center; }
-#seek {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--cyan) var(--fill, 0%), rgba(242, 238, 255, 0.14) var(--fill, 0%));
-  outline: none; cursor: pointer;
-}
-#seek::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
-  background: var(--ink); border: 2.5px solid var(--magenta);
-  box-shadow: 0 0 12px rgba(232, 121, 249, 0.8); cursor: grab;
-}
-#seek::-moz-range-thumb {
-  width: 15px; height: 15px; border-radius: 50%;
-  background: var(--ink); border: 2.5px solid var(--magenta);
-  box-shadow: 0 0 12px rgba(232, 121, 249, 0.8); cursor: grab;
-}
-#seek:focus-visible { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.35); }
-.chap-ticks { position: absolute; inset: 0; pointer-events: none; }
-.chap-ticks i { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 3px; height: 11px; border-radius: 2px; background: rgba(242, 238, 255, 0.4); }
-@media (max-width: 640px) { #chapLabel { font-size: 10.5px; } #player { bottom: 10px; padding: 8px 12px 10px; } }
 </style>
 </head>
 <body>
@@ -410,8 +349,6 @@ body.playing #playBtn .ic-pause { display: block; }
 <canvas id="stage" aria-hidden="true"></canvas>
 <div class="vignette" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
-<div class="letterbox top" aria-hidden="true"></div>
-<div class="letterbox bot" aria-hidden="true"></div>
 
 <header id="topbar">
   <a class="brand" href="#hero" aria-label="Bitlab — home">
@@ -421,8 +358,6 @@ body.playing #playBtn .ic-pause { display: block; }
       <span class="brand-zh" data-i18n="brandZh">和鼎潤有限公司</span>
     </span>
   </a>
-  <div class="rec" aria-hidden="true"><i></i><span data-i18n="recLabel">REC · 自媒體時代</span></div>
-  <div class="tc" id="clockTc" aria-hidden="true">00:00:00:00</div>
   <div class="lang" role="group" aria-label="Language / 語言">
     <button data-lang="en" aria-pressed="false">EN</button>
     <button data-lang="cmn" aria-pressed="false">普</button>
@@ -672,24 +607,6 @@ body.playing #playBtn .ic-pause { display: block; }
     </div>
   </div>
 </footer>
-
-<!-- THE PLAYER BAR -->
-<div id="player" role="region" aria-label="Site playback controls">
-  <button id="playBtn" aria-label="Play / Pause">
-    <svg class="ic-play" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5-9-5.5Z"/></svg>
-    <svg class="ic-pause" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2h3v12H4zM9 2h3v12H9z"/></svg>
-  </button>
-  <div class="player-mid">
-    <div class="player-top">
-      <span id="chapLabel">SCENE 00 · 序幕</span>
-      <span id="tcLabel">00:00 / 06:00</span>
-    </div>
-    <div class="seek-wrap">
-      <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek through the site" />
-      <div class="chap-ticks" id="chapTicks" aria-hidden="true"></div>
-    </div>
-  </div>
-</div>
 
 <script type="importmap">
 {
@@ -959,15 +876,6 @@ function buildTicker(items) {
 /* ---------- topbar + running timecode ---------- */
 const topbar = document.getElementById('topbar');
 addEventListener('scroll', () => topbar.classList.toggle('on', scrollY > 24), { passive: true });
-const clockTc = document.getElementById('clockTc');
-const bootT = performance.now();
-setInterval(() => {
-  const ms = performance.now() - bootT;
-  const f = Math.floor((ms % 1000) / 41.7);
-  const s = Math.floor(ms / 1000);
-  const pad = n => String(n).padStart(2, '0');
-  clockTc.textContent = `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}:${pad(f)}`;
-}, 83);
 
 /* ---------- reveals ---------- */
 const io = new IntersectionObserver(es => {
@@ -1007,91 +915,6 @@ function splitHeroChars() {
 }
 langListeners.push(splitHeroChars);
 
-/* ============================================================
-   THE PLAYER BAR — scrub, chapters, autoplay
-   ============================================================ */
-const seek = document.getElementById('seek');
-const chapLabel = document.getElementById('chapLabel');
-const tcLabel = document.getElementById('tcLabel');
-const chapTicks = document.getElementById('chapTicks');
-const playBtn = document.getElementById('playBtn');
-const SECTIONS = ['#hero', '#about', '#svc', '#ip', '#mkt', '#adv', '#finale'].map(s => document.querySelector(s));
-const RUNTIME = 360; // the film is "6:00" long
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let scrubbing = false;
-let playing = false;
-
-function maxScroll() { return document.documentElement.scrollHeight - innerHeight; }
-function scrollProgress() { const m = maxScroll(); return m > 0 ? Math.min(1, Math.max(0, scrollY / m)) : 0; }
-function fmt(sec) { const s = Math.round(sec); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
-
-function buildTicks() {
-  chapTicks.innerHTML = '';
-  const m = maxScroll();
-  if (m <= 0) return;
-  SECTIONS.forEach(sec => {
-    const p = Math.min(1, sec.offsetTop / m);
-    const i = document.createElement('i');
-    i.style.left = `${p * 100}%`;
-    chapTicks.appendChild(i);
-  });
-}
-function currentChapter(p) {
-  const m = maxScroll();
-  let idx = 0;
-  SECTIONS.forEach((sec, i) => { if (scrollY >= sec.offsetTop - innerHeight * 0.45) idx = i; });
-  return idx;
-}
-function playerTick() {
-  const p = scrollProgress();
-  if (!scrubbing) {
-    seek.value = Math.round(p * 1000);
-    seek.style.setProperty('--fill', `${p * 100}%`);
-  }
-  tcLabel.textContent = `${fmt(p * RUNTIME)} / ${fmt(RUNTIME)}`;
-  const ch = currentChapter(p);
-  const label = t('chapters')[ch];
-  if (chapLabel.textContent !== label) chapLabel.textContent = label;
-}
-addEventListener('scroll', playerTick, { passive: true });
-addEventListener('resize', () => { buildTicks(); playerTick(); });
-langListeners.push(playerTick);
-
-seek.addEventListener('input', () => {
-  scrubbing = true;
-  const p = seek.value / 1000;
-  seek.style.setProperty('--fill', `${p * 100}%`);
-  scrollTo({ top: p * maxScroll(), behavior: 'auto' });
-});
-seek.addEventListener('change', () => { scrubbing = false; });
-
-/* autoplay: the site plays itself like a film */
-let playLast = 0;
-function playLoop(now) {
-  if (!playing) return;
-  requestAnimationFrame(playLoop);
-  const dt = Math.min(0.3, (now - playLast) / 1000); // generous clamp: constant real-time pace even at low fps
-  playLast = now;
-  const m = maxScroll();
-  scrollBy(0, (m / 80) * dt); // the autoplay cut runs ~80s end to end
-  if (scrollY >= m - 2) stopPlay();
-}
-function startPlay() {
-  if (reduced) { document.querySelector('#about').scrollIntoView(); return; }
-  playing = true;
-  document.body.classList.add('playing');
-  playBtn.setAttribute('aria-label', 'Pause');
-  playLast = performance.now();
-  requestAnimationFrame(playLoop);
-}
-function stopPlay() {
-  playing = false;
-  document.body.classList.remove('playing');
-  playBtn.setAttribute('aria-label', 'Play');
-}
-playBtn.addEventListener('click', () => (playing ? stopPlay() : startPlay()));
-['wheel', 'touchstart', 'keydown'].forEach(ev =>
-  addEventListener(ev, () => { if (playing) stopPlay(); }, { passive: true }));
 
 /* ---------- enroll form (Netlify) ---------- */
 const form = document.querySelector('form[name="enroll"]');
@@ -1118,15 +941,12 @@ form.addEventListener('submit', async e => {
 let saved = 'yue';
 try { saved = localStorage.getItem('bitlab-lang') || 'yue'; } catch (e) { /* private mode */ }
 setLanguage(I18N[saved] ? saved : 'yue');
-buildTicks();
-playerTick();
 
 let preDone = false;
 function hidePre() {
   if (preDone) return;
   preDone = true;
   document.getElementById('pre').classList.add('done');
-  buildTicks();
 }
 window.addEventListener('load', () => setTimeout(hidePre, 900)); // let the title card breathe
 setTimeout(hidePre, 3600);
@@ -1171,6 +991,17 @@ if (renderer) {
   scene.fog = new THREE.FogExp2(0x070312, 0.045);
   const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 80);
   camera.position.set(0, 1.4, 8.5);
+
+  scene.add(new THREE.AmbientLight(0x8878c0, 0.6));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  keyLight.position.set(4, 6, 5);
+  scene.add(keyLight);
+  const cyanLight = new THREE.PointLight(0x22d3ee, 40, 24, 1.8);
+  cyanLight.position.set(-3, 2, 2);
+  scene.add(cyanLight);
+  const magLight = new THREE.PointLight(0xe879f9, 40, 24, 1.8);
+  magLight.position.set(3, -1.5, -2);
+  scene.add(magLight);
 
   /* ---------- SCENE A: the attention vortex (GPU particles) ---------- */
   const COUNT = isMobile ? 16000 : 42000;
@@ -1278,9 +1109,12 @@ if (renderer) {
   scene.add(points);
 
   // pulsating core + glow sprite
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xfff4d6, transparent: true, opacity: 1 });
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), coreMat);
+  const coreMat = new THREE.MeshStandardMaterial({ color: 0x2a1650, metalness: 0.9, roughness: 0.16, emissive: 0xfbbf24, emissiveIntensity: 0.75, transparent: true });
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.36, 0), coreMat);
   scene.add(core);
+  const coreWireMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, wireframe: true, transparent: true, opacity: 0.7 });
+  const coreWire = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 1), coreWireMat);
+  scene.add(coreWire);
   const glowTex = (() => {
     const cv = document.createElement('canvas'); cv.width = cv.height = 128;
     const cx = cv.getContext('2d');
@@ -1295,10 +1129,39 @@ if (renderer) {
   coreGlow.scale.setScalar(2.6);
   scene.add(coreGlow);
 
+  /* solid metallic orbit rings */
+  const ringMat1 = new THREE.MeshStandardMaterial({ color: 0x10071f, metalness: 0.85, roughness: 0.25, emissive: 0x22d3ee, emissiveIntensity: 0.55, transparent: true });
+  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(4.1, 0.035, 10, 150), ringMat1);
+  ring1.rotation.x = Math.PI / 2.25;
+  scene.add(ring1);
+  const ringMat2 = new THREE.MeshStandardMaterial({ color: 0x10071f, metalness: 0.85, roughness: 0.25, emissive: 0xe879f9, emissiveIntensity: 0.55, transparent: true });
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(5.0, 0.028, 10, 150), ringMat2);
+  ring2.rotation.x = Math.PI / 1.8;
+  ring2.rotation.y = 0.5;
+  scene.add(ring2);
+
+  /* drifting crystal shards — solid, lit, individually spinning */
+  const SHARDS = isMobile ? 22 : 36;
+  const shardMat = new THREE.MeshStandardMaterial({ color: 0x1b0f38, metalness: 0.9, roughness: 0.2, emissive: 0x22d3ee, emissiveIntensity: 0.35, transparent: true });
+  const shards = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.16, 0), shardMat, SHARDS);
+  const shardData = [];
+  for (let i = 0; i < SHARDS; i++) {
+    shardData.push({
+      r: 4.6 + Math.random() * 3.4,
+      a0: Math.random() * Math.PI * 2,
+      y: (Math.random() - 0.5) * 3.4,
+      speed: 0.04 + Math.random() * 0.08,
+      spin: 0.4 + Math.random() * 1.3,
+      scale: 0.5 + Math.random() * 1.2,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+  scene.add(shards);
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3(), _v = new THREE.Vector3();
+
   /* platform satellites orbiting the vortex */
   const PLATFORMS = ['IG', 'TikTok', 'YouTube', '小紅書', 'Threads', 'FB', 'LinkedIn', 'Bilibili'];
   const satGroup = new THREE.Group();
-  const satMats = [];
   PLATFORMS.forEach((name, i) => {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96;
     const cx = cv.getContext('2d');
@@ -1309,12 +1172,21 @@ if (renderer) {
     cx.fillStyle = '#f2eeff';
     cx.fillText(name, 128, 50);
     const tex = new THREE.CanvasTexture(cv);
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9, depthWrite: false });
-    const sp = new THREE.Sprite(mat);
-    sp.scale.set(1.5, 0.56, 1);
-    sp.userData = { r: 3.4 + (i % 4) * 0.85, speed: 0.1 + (i % 3) * 0.035, phase: (i / PLATFORMS.length) * Math.PI * 2, tilt: (i % 2 ? 1 : -1) * (0.15 + i * 0.03) };
-    satMats.push(mat);
-    satGroup.add(sp);
+    const holder = new THREE.Group();
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(1.42, 0.56, 0.07),
+      new THREE.MeshStandardMaterial({
+        color: 0x140a2c, metalness: 0.7, roughness: 0.3,
+        emissive: i % 2 ? 0xe879f9 : 0x22d3ee, emissiveIntensity: 0.24, transparent: true,
+      })
+    );
+    holder.add(slab);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.95, depthWrite: false }));
+    label.scale.set(1.5, 0.56, 1);
+    label.position.z = 0.07;
+    holder.add(label);
+    holder.userData = { r: 3.4 + (i % 4) * 0.85, speed: 0.1 + (i % 3) * 0.035, phase: (i / PLATFORMS.length) * Math.PI * 2, tilt: (i % 2 ? 1 : -1) * (0.15 + i * 0.03), slab, label };
+    satGroup.add(holder);
   });
   scene.add(satGroup);
 
@@ -1516,17 +1388,49 @@ if (renderer) {
 
     const corePulse = 1 + Math.sin(et * 2.2) * 0.12;
     core.scale.setScalar(corePulse * (1 - morph));
+    core.rotation.y = et * 0.5;
+    core.rotation.x = et * 0.22;
+    coreWire.scale.setScalar((1.1 + Math.sin(et * 1.4) * 0.08) * (1 - morph));
+    coreWire.rotation.y = -et * 0.32;
+    coreWire.rotation.z = et * 0.18;
     coreMat.opacity = wVortex * (1 - morph);
+    coreWireMat.opacity = 0.7 * wVortex * (1 - morph);
     coreGlow.material.opacity = 0.9 * wVortex * (1 - morph * 0.85);
     coreGlow.scale.setScalar(2.6 * corePulse);
-    core.visible = coreGlow.visible = wVortex > 0.01;
+    core.visible = coreWire.visible = coreGlow.visible = wVortex > 0.01;
+
+    // solid rings sweep, lights breathe
+    ring1.visible = ring2.visible = wVortex > 0.01;
+    ring1.rotation.z = et * 0.1;
+    ring2.rotation.z = -et * 0.07;
+    ringMat1.opacity = ringMat2.opacity = 0.92 * wVortex * (1 - morph);
+    cyanLight.intensity = 40 + Math.sin(et * 1.7) * 14;
+    magLight.intensity = 40 + Math.cos(et * 1.3) * 14;
+
+    // crystal shards drift and tumble
+    shards.visible = wVortex > 0.01 && morph < 0.7;
+    shardMat.opacity = wVortex * (1 - morph);
+    if (shards.visible) {
+      shardData.forEach((d, i) => {
+        const a = d.a0 + et * d.speed;
+        _e.set(et * d.spin + d.phase, et * d.spin * 0.7, d.phase);
+        _q.setFromEuler(_e);
+        _s.setScalar(d.scale);
+        _v.set(Math.cos(a) * d.r, d.y + Math.sin(et * 0.7 + d.phase) * 0.25, Math.sin(a) * d.r * 0.8);
+        _m.compose(_v, _q, _s);
+        shards.setMatrixAt(i, _m);
+      });
+      shards.instanceMatrix.needsUpdate = true;
+    }
 
     satGroup.visible = wVortex > 0.01 && morph < 0.4;
-    satGroup.children.forEach(sp => {
-      const { r, speed, phase, tilt } = sp.userData;
+    satGroup.children.forEach(h => {
+      const { r, speed, phase, tilt, slab, label } = h.userData;
       const a = et * speed + phase;
-      sp.position.set(Math.cos(a) * r, Math.sin(a * 1.3 + phase) * r * tilt * 0.35, Math.sin(a) * r * 0.72);
-      sp.material.opacity = 0.9 * wVortex * (1 - morph);
+      h.position.set(Math.cos(a) * r, Math.sin(a * 1.3 + phase) * r * tilt * 0.35, Math.sin(a) * r * 0.72);
+      h.lookAt(camera.position);
+      slab.material.opacity = wVortex * (1 - morph);
+      label.material.opacity = 0.95 * wVortex * (1 - morph);
     });
 
     netGroup.visible = wNet > 0.01;
@@ -1567,7 +1471,7 @@ if (renderer) {
 </script>
 
 <noscript>
-  <style>#pre{display:none}#player{display:none}</style>
+  <style>#pre{display:none}</style>
   <div style="position:relative;z-index:20;padding:120px 24px;text-align:center;font-family:sans-serif;color:#f2eeff">
     BITLAB 和鼎潤有限公司 — 自媒體實戰培訓 · 個人IP孵化 · 營銷策略指導。
     香港新界沙田安耀街3號匯達大廈26樓23室。
