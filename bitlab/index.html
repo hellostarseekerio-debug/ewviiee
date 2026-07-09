@@ -22,7 +22,7 @@
     {
       "@type": ["Organization", "EducationalOrganization", "LocalBusiness"],
       "name": "和鼎潤有限公司",
-      "alternateName": ["Hedwin Prosper Limited", "Bitlab"],
+      "alternateName": ["Hedwin Prosperity Limited", "Bitlab"],
       "slogan": "再小的個體，也有自己的品牌。",
       "description": "自媒體與營銷教育賦能平台：自媒體實戰培訓、個人IP與品牌孵化、全方位營銷策略指導。",
       "address": {
@@ -191,6 +191,11 @@ html[lang="zh-Hant-HK"] h2, html[lang="zh-Hans"] h2 { font-family: var(--body); 
 .ch { display: inline-block; white-space: pre; opacity: 0; filter: blur(14px); transform: scale(1.25); animation: filmCh 1.1s var(--ease) forwards; }
 @keyframes filmCh { to { opacity: 1; filter: blur(0); transform: none; } }
 .word { display: inline-block; white-space: nowrap; }
+.grad-text .ch {
+  background: var(--grad);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
 @media (prefers-reduced-motion: reduce) { .ch { animation: none; opacity: 1; filter: none; transform: none; } }
 
 .btn {
@@ -347,8 +352,6 @@ footer.site {
 
 <div class="stage-fallback" aria-hidden="true"></div>
 <canvas id="stage" aria-hidden="true"></canvas>
-<div class="vignette" aria-hidden="true"></div>
-<div class="grain" aria-hidden="true"></div>
 
 <header id="topbar">
   <a class="brand" href="#hero" aria-label="Bitlab — home">
@@ -597,7 +600,7 @@ footer.site {
   <div class="foot">
     <div>
       <div class="f-brand">BITLAB</div>
-      <div class="f-co" data-i18n="footCo">和鼎潤有限公司 · Hedwin Prosper Limited</div>
+      <div class="f-co" data-i18n="footCo">和鼎潤有限公司 · Hedwin Prosperity Limited</div>
       <p class="f-addr" data-i18n-html="footAddr">香港新界沙田安耀街3號匯達大廈26樓23室<br>Unit 23, 26/F, Delta House, 3 On Yiu Street, Sha Tin, New Territories, Hong Kong</p>
     </div>
     <div class="f-right">
@@ -628,7 +631,7 @@ footer.site {
 const I18N = {
   /* ---------------- English ---------------- */
   en: {
-    _meta: { htmlLang: 'en', title: 'BITLAB Hedwin Prosper Limited — Self-Media & Marketing Education | Even the smallest entity has its own brand', desc: 'BITLAB (Hedwin Prosper Limited) — Hong Kong self-media and marketing education platform. Practical self-media training, personal IP incubation, full-stack marketing strategy. Algorithm deconstruction for IG, TikTok, YouTube and Xiaohongshu, traffic monetization and funnel building. Sha Tin, Hong Kong.' },
+    _meta: { htmlLang: 'en', title: 'BITLAB Hedwin Prosperity Limited — Self-Media & Marketing Education | Even the smallest entity has its own brand', desc: 'BITLAB (Hedwin Prosperity Limited) — Hong Kong self-media and marketing education platform. Practical self-media training, personal IP incubation, full-stack marketing strategy. Algorithm deconstruction for IG, TikTok, YouTube and Xiaohongshu, traffic monetization and funnel building. Sha Tin, Hong Kong.' },
     brandZh: 'HEDWIN PROSPER LIMITED',
     recLabel: 'REC · The Attention Era',
     s0Tag: 'SCENE 00', s0Name: 'Opening · The Attention Era',
@@ -686,11 +689,11 @@ const I18N = {
     fOk: 'Received! We will contact you within one working day — camera ready.',
     fErr: 'Submission failed — please email hello@bitlab.hk instead.',
     fSend: 'Enroll Now · Book a Consultation',
-    footCo: 'Hedwin Prosper Limited · 和鼎潤有限公司',
+    footCo: 'Hedwin Prosperity Limited · 和鼎潤有限公司',
     footAddr: 'Unit 23, 26/F, Delta House, 3 On Yiu Street, Sha Tin, New Territories, Hong Kong',
     footLine: 'Self-Media Training · Personal IP Incubation · Marketing Strategy',
     footSlogan: '"Even the smallest entity has its own brand."',
-    footRights: '© 2026 Hedwin Prosper Limited. All rights reserved.',
+    footRights: '© 2026 Hedwin Prosperity Limited. All rights reserved.',
     chapters: ['SCENE 00 · OPENING', 'SCENE 01 · ABOUT US', 'SCENE 02 · SELF-MEDIA TRAINING', 'SCENE 03 · PERSONAL IP', 'SCENE 04 · MARKETING STRATEGY', 'SCENE 05 · WHY BITLAB', 'FINAL SCENE · ENROLL'],
     ticker: ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'XIAOHONGSHU 小紅書', 'THREADS', 'FACEBOOK', 'LINKEDIN', 'BILIBILI'],
   },
@@ -755,7 +758,7 @@ const I18N = {
     fOk: '收到！我们会在一个工作日内联系您，准备开机。',
     fErr: '提交未成功，请直接发邮件至 hello@bitlab.hk 联系我们。',
     fSend: '立即报名 · 预约咨询',
-    footCo: '和鼎润有限公司 · Hedwin Prosper Limited',
+    footCo: '和鼎润有限公司 · Hedwin Prosperity Limited',
     footAddr: '香港新界沙田安耀街3号汇达大厦26楼23室<br>Unit 23, 26/F, Delta House, 3 On Yiu Street, Sha Tin, New Territories, Hong Kong',
     footLine: '自媒体实战培训 · 个人IP孵化 · 营销策略指导',
     footSlogan: '"再小的个体，也有自己的品牌。"',
@@ -824,7 +827,7 @@ const I18N = {
     fOk: '收到！我哋會喺一個工作天內聯絡您，預備開機。',
     fErr: '提交唔成功，請直接電郵 hello@bitlab.hk 搵我哋。',
     fSend: '立即報名 · 預約諮詢',
-    footCo: '和鼎潤有限公司 · Hedwin Prosper Limited',
+    footCo: '和鼎潤有限公司 · Hedwin Prosperity Limited',
     footAddr: '香港新界沙田安耀街3號匯達大廈26樓23室<br>Unit 23, 26/F, Delta House, 3 On Yiu Street, Sha Tin, New Territories, Hong Kong',
     footLine: '自媒體實戰培訓 · 個人IP孵化 · 營銷策略指導',
     footSlogan: '「再小的個體，也有自己的品牌。」',
@@ -1141,7 +1144,7 @@ if (renderer) {
   scene.add(ring2);
 
   /* drifting crystal shards — solid, lit, individually spinning */
-  const SHARDS = isMobile ? 22 : 36;
+  const SHARDS = isMobile ? 8 : 14;
   const shardMat = new THREE.MeshStandardMaterial({ color: 0x1b0f38, metalness: 0.9, roughness: 0.2, emissive: 0x22d3ee, emissiveIntensity: 0.35, transparent: true });
   const shards = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.16, 0), shardMat, SHARDS);
   const shardData = [];
@@ -1299,7 +1302,7 @@ if (renderer) {
   composer.setPixelRatio(DPR);
   composer.setSize(innerWidth, innerHeight);
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.75, 0.32));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.7, 0.5));
   const lens = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
     vertexShader: /* glsl */`
@@ -1311,17 +1314,9 @@ if (renderer) {
       uniform sampler2D tDiffuse;
       uniform float uTime;
       void main() {
-        vec2 c = vUv - 0.5;
-        float d = length(c);
-        vec2 dir = d > 0.0001 ? normalize(c) : vec2(0.0);
-        float ab = 0.0011 * (1.0 + d * 2.5);
-        vec3 col = vec3(
-          texture2D(tDiffuse, vUv + dir * ab).r,
-          texture2D(tDiffuse, vUv).g,
-          texture2D(tDiffuse, vUv - dir * ab).b
-        );
-        col *= 1.0 - smoothstep(0.5, 1.0, d) * 0.42;
-        col *= 0.985 + 0.015 * sin(vUv.y * 760.0 + uTime * 3.0);
+        float d = length(vUv - 0.5);
+        vec3 col = texture2D(tDiffuse, vUv).rgb;
+        col *= 1.0 - smoothstep(0.6, 1.05, d) * 0.28;
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -1445,9 +1440,9 @@ if (renderer) {
     if (!reducedMotion) { comGroup.rotation.y = et * 0.07; comGroup.rotation.x = Math.sin(et * 0.3) * 0.08; }
 
     // camera: slow cinematic dolly + parallax
-    const orbA = smooth * Math.PI * 1.15 + (reducedMotion ? 0 : et * 0.02);
-    const rad = 8.5 - Math.sin(smooth * Math.PI) * 2.2 - morph * 2.0;
-    const camY = 1.4 + Math.sin(smooth * Math.PI * 2) * 0.7;
+    const orbA = smooth * Math.PI * 0.7 + (reducedMotion ? 0 : et * 0.015);
+    const rad = 8.5 - Math.sin(smooth * Math.PI) * 1.4 - morph * 1.6;
+    const camY = 1.4 + Math.sin(smooth * Math.PI * 2) * 0.4;
     camera.position.set(
       Math.sin(orbA) * rad + mouseN.x * 0.5,
       camY - mouseN.y * 0.35,
