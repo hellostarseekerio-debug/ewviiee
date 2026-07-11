@@ -25,10 +25,31 @@ async def _lifespan(app: FastAPI):
     yield
 
 
+
+# FastAPI's built-in /docs (Swagger UI) and /redoc pages load their JS/CSS
+# from this CDN and run a small inline init script - the default strict
+# CSP below blocks all of that with no error dialog, just a blank page.
+# Only these dev-tooling routes (never the JSON API itself, which doesn't
+# execute any script regardless of CSP) get the relaxed policy below.
+_DOCS_PATHS = frozenset({"/docs", "/redoc", "/docs/oauth2-redirect"})
+_DOCS_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+    "font-src 'self' https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'"
+)
+_DEFAULT_CSP = "default-src 'self'; frame-ancestors 'none'"
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Adds standard defensive HTTP headers to every response. This is a
     local-first, internal-office application, so the CSP is deliberately
-    strict (no external script/style/font sources)."""
+    strict (no external script/style/font sources) everywhere except the
+    interactive API docs pages, which need a named CDN exception to
+    render at all - see _DOCS_PATHS above."""
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -37,7 +58,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; frame-ancestors 'none'"
+            _DOCS_CSP if request.url.path in _DOCS_PATHS else _DEFAULT_CSP
         )
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response
