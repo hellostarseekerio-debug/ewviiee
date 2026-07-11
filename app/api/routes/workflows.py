@@ -8,7 +8,17 @@ Every `document_paths` entry is resolved and verified to fall under an
 approved import/archive/export root before it is ever opened - this is the
 platform's path-traversal guard.
 """
-from __future__ import annotations
+# Deliberately no `from __future__ import annotations` here: `run_workflow`
+# below is wrapped by `@limiter.limit(...)` (slowapi) before FastAPI ever
+# sees it, and FastAPI resolves PEP 563 deferred string annotations using
+# the *decorated* function's `__globals__` - slowapi's own module, not this
+# one. `WorkflowRunRequest`/`WorkflowEngine` aren't names slowapi imports,
+# so with the future import in place those annotations silently stayed
+# unresolved ForwardRefs and broke route registration at startup under
+# FastAPI==0.111.0 (the version actually pinned for deployment - see
+# app/api/routes/auth.py's matching comment for the full mechanism).
+# Keeping annotations as live objects sidesteps the mismatch regardless of
+# decorator wrapping.
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 

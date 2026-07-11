@@ -24,7 +24,20 @@ The pending token is scoped (`scope=mfa_pending`) and rejected by every
 other endpoint (see `app.api.deps.get_current_user`), and expires in 5
 minutes, so a leaked pending token is far less useful than a real one.
 """
-from __future__ import annotations
+# Deliberately no `from __future__ import annotations` in this file (unlike
+# most of the rest of this codebase): every route below decorated with
+# `@limiter.limit(...)` is wrapped by slowapi before FastAPI ever sees it,
+# and FastAPI resolves PEP 563 deferred string annotations using the
+# *decorated* function's `__globals__` - which is slowapi's own module, not
+# this one. Every name referenced only by this file's annotations
+# (OAuth2PasswordRequestForm, MFAVerifyRequest, MFAConfirmRequest, User,
+# etc.) is invisible there, so those annotations silently stayed
+# unresolved ForwardRefs and broke route registration at startup (only
+# under FastAPI==0.111.0, the version actually pinned for deployment -
+# newer FastAPI versions happen to tolerate it, which is why this wasn't
+# caught locally against the pinned deployment version until now). Keeping
+# annotations as live objects (no future import) sidesteps the whole
+# eval/globals mismatch, regardless of decorator wrapping.
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -69,7 +82,24 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/token", response_model=TokenResponse)
 @limiter.limit(lambda: get_settings().rate_limit_login)
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    # Depends(OAuth2PasswordRequestForm) is written explicitly, not the
+    # usual bare `= Depends()`. With `from __future__ import annotations`,
+    # this parameter's annotation is a string until FastAPI evaluates it -
+    # and it evaluates a *decorated* function's annotations using the
+    # decorator's own module globals, not this module's (slowapi's
+    # @limiter.limit wraps `login`, and slowapi doesn't import
+    # OAuth2PasswordRequestForm). A bare `Depends()` relies on the
+    # resolved annotation to know *what* to call, so that lookup failing
+    # left it holding an unresolved ForwardRef - which FastAPI then tried
+    # to call as the dependency, crashing with "ForwardRef(...) is not a
+    # callable object" at startup. Naming the class explicitly here
+    # sidesteps that lookup entirely, regardless of which module's
+    # globals get used to resolve it.
+    form_data: OAuth2PasswordRequestForm = Depends(OAuth2PasswordRequestForm),
+    db: Session = Depends(get_db),
+):
     user = db.query(User).filter(User.username == form_data.username).first()
 
     if user and is_account_locked(user):

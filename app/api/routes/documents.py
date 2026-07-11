@@ -5,7 +5,16 @@ before ever touching disk, are written under a server-controlled directory
 with a randomly generated filename (the client-supplied name is never used
 as a path), and require Editor+ role. Approve/reject requires Reviewer+.
 """
-from __future__ import annotations
+# Deliberately no `from __future__ import annotations` here: `upload_document`
+# below is wrapped by `@limiter.limit(...)` (slowapi) before FastAPI ever
+# sees it, and FastAPI resolves PEP 563 deferred string annotations using
+# the *decorated* function's `__globals__` - slowapi's own module, not this
+# one. `UploadFile` isn't a name slowapi imports, so with the future import
+# in place that annotation silently stayed an unresolved ForwardRef and
+# broke route registration at startup under FastAPI==0.111.0 (the version
+# actually pinned for deployment - see app/api/routes/auth.py's matching
+# comment for the full mechanism). Keeping annotations as live objects
+# sidesteps the mismatch regardless of decorator wrapping.
 
 import shutil
 from datetime import datetime
