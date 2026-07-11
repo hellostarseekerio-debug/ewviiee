@@ -69,11 +69,21 @@ def create_app() -> FastAPI:
     settings = get_settings()
     settings.assert_secure_for_production()
 
+    # The interactive docs (/docs, /redoc) and the raw schema (/openapi.json)
+    # publicly map every endpoint and request/response field to anyone who
+    # finds the URL, with no authentication required to view them - useful
+    # while developing, but unnecessary reconnaissance surface once this is
+    # a real internet-facing deployment. Disabled outright in production;
+    # still available in development for local testing.
+    is_production = settings.environment == "production"
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         description="Enterprise AI Office Automation Platform API",
         lifespan=_lifespan,
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
 
     app.state.limiter = limiter
