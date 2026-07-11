@@ -7,11 +7,26 @@ Create Date: 2026-07-11
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision = "0001"
 down_revision = None
 branch_labels = None
 depends_on = None
+
+# op.create_table() below creates these PostgreSQL enum types implicitly
+# (as part of the CREATE TABLE statement) for the "status"/"role" columns.
+# downgrade() must drop them explicitly once their owning tables are gone -
+# otherwise a downgrade followed by a re-upgrade fails with "type ...
+# already exists", since op.create_table's implicit CREATE TYPE has no
+# checkfirst. No-op on SQLite, which has no native enum type to create or
+# drop in the first place.
+_document_status_enum = postgresql.ENUM(
+    "IMPORTED", "CLASSIFIED", "OCR_DONE", "EXTRACTED", "VALIDATED",
+    "GENERATED", "REVIEW", "EXPORTED", "ARCHIVED", "FAILED",
+    name="documentstatus",
+)
+_user_role_enum = postgresql.ENUM("ADMIN", "EDITOR", "REVIEWER", "VIEWER", name="userrole")
 
 
 def upgrade() -> None:
@@ -109,3 +124,10 @@ def downgrade() -> None:
     op.drop_table("workflow_runs")
     op.drop_table("processing_events")
     op.drop_table("documents")
+
+    # Drop the enum types only after every table referencing them is gone -
+    # Postgres refuses to drop a type still in use. checkfirst=True keeps
+    # this idempotent/no-op on SQLite and safe to re-run.
+    bind = op.get_bind()
+    _user_role_enum.drop(bind, checkfirst=True)
+    _document_status_enum.drop(bind, checkfirst=True)

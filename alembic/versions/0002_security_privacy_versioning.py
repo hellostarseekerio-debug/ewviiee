@@ -7,20 +7,41 @@ Create Date: 2026-07-11
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision = "0002"
 down_revision = "0001"
 branch_labels = None
 depends_on = None
 
+# On PostgreSQL, an enum is its own schema object (CREATE TYPE ... AS ENUM)
+# that a column merely references by name. op.create_table() emits that
+# CREATE TYPE automatically as part of building the table, but a bare
+# op.add_column() does not - it only knows how to reference an
+# already-existing type, which is why the plain `sa.Enum(...)` column
+# below failed with "type approvalstatus does not exist" on a fresh
+# Postgres database (SQLite has no native enum type, so it never surfaced
+# there - Enum degrades to a VARCHAR + CHECK constraint instead).
+# create_type=False so this Column definition never tries to (re-)create
+# the type itself - creation is handled explicitly, once, below.
+approval_status_enum = postgresql.ENUM(
+    "PENDING", "APPROVED", "REJECTED", name="approvalstatus", create_type=False
+)
+
 
 def upgrade() -> None:
+    # checkfirst=True makes this safe to re-run (e.g. a retried deploy
+    # after a partial failure) without erroring on a type that already
+    # exists. On SQLite this is a no-op - it degrades to a plain
+    # CHECK-constrained column with no separate type to create.
+    approval_status_enum.create(op.get_bind(), checkfirst=True)
+
     # --- Documents: approval workflow + soft delete -------------------------
     op.add_column(
         "documents",
         sa.Column(
             "approval_status",
-            sa.Enum("PENDING", "APPROVED", "REJECTED", name="approvalstatus"),
+            approval_status_enum,
             nullable=False,
             server_default="PENDING",
         ),
@@ -99,3 +120,7 @@ def downgrade() -> None:
     op.drop_column("documents", "reviewed_at")
     op.drop_column("documents", "reviewed_by")
     op.drop_column("documents", "approval_status")
+
+    # Drop the enum type itself only after every column referencing it is
+    # gone - Postgres refuses to drop a type still in use.
+    approval_status_enum.drop(op.get_bind(), checkfirst=True)
