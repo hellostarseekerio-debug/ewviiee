@@ -108,7 +108,15 @@ class RuleEngine:
             return None
         logger.info("rule_engine_ai_fallback", field="district")
         names = [d.name for d in self.ruleset.districts]
-        response = self._ai_provider.classify(text, names, context="Identify the Hong Kong district.")
+        try:
+            response = self._ai_provider.classify(
+                text, names, context="Identify the Hong Kong district."
+            )
+        except Exception as exc:
+            # AI is a best-effort fallback, never a hard dependency - a
+            # network hiccup or provider outage must not crash the pipeline.
+            logger.warning("ai_fallback_failed", field="district", error=str(exc))
+            return None
         for district in self.ruleset.districts:
             if _normalize(district.name) == _normalize(response.text):
                 return district
@@ -119,7 +127,13 @@ class RuleEngine:
             return None
         logger.info("rule_engine_ai_fallback", field="estate")
         names = [e.name for e in pool]
-        response = self._ai_provider.classify(text, names, context="Identify the housing estate name.")
+        try:
+            response = self._ai_provider.classify(
+                text, names, context="Identify the housing estate name."
+            )
+        except Exception as exc:
+            logger.warning("ai_fallback_failed", field="estate", error=str(exc))
+            return None
         for estate in pool:
             if _normalize(estate.name) == _normalize(response.text):
                 return estate

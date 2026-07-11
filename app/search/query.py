@@ -32,7 +32,7 @@ class SearchFilters:
 
 
 def search_documents(session: Session, filters: SearchFilters) -> tuple[list[Document], int]:
-    query = session.query(Document)
+    query = session.query(Document).filter(Document.is_deleted.is_(False))
 
     if filters.estate:
         query = query.filter(Document.estate.ilike(f"%{filters.estate}%"))

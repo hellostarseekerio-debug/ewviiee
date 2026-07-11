@@ -30,7 +30,12 @@ PyYAML==6.0.1
 # Security
 cryptography==42.0.8
 passlib[bcrypt]==1.7.4
+# passlib 1.7.4's bcrypt backend detection breaks on bcrypt>=4.1 (removed
+# the `__about__` module passlib probes for the version string) - pin to a
+# known-compatible release.
+bcrypt==4.0.1
 python-jose[cryptography]==3.3.0
+slowapi==0.1.9
 
 # Utilities
 structlog==24.1.0

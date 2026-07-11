@@ -46,6 +46,12 @@ class UserRole(str, enum.Enum):
     VIEWER = "viewer"
 
 
+class ApprovalStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Document(Base):
     """A single document tracked through the system, with full metadata."""
 
@@ -79,6 +85,19 @@ class Document(Base):
     output_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     archive_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
+    # Approval / review workflow (Phase 7)
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        SAEnum(ApprovalStatus), default=ApprovalStatus.PENDING, index=True
+    )
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Safe/soft deletion - never physically remove a processed record on request
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deleted_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -86,6 +105,9 @@ class Document(Base):
 
     processing_history: Mapped[list["ProcessingEvent"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
+    )
+    versions: Mapped[list["DocumentVersion"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", order_by="DocumentVersion.version_number"
     )
 
 
@@ -103,6 +125,25 @@ class ProcessingEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     document: Mapped[Document] = relationship(back_populates="processing_history")
+
+
+class DocumentVersion(Base):
+    """Version history for a document's generated output, enabling rollback.
+    Original source documents are never modified or overwritten; each
+    generation pass is recorded here as a new, immutable version."""
+
+    __tablename__ = "document_versions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
+    version_number: Mapped[int] = mapped_column(Integer)
+    file_path: Mapped[str] = mapped_column(String(1024))
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    document: Mapped[Document] = relationship(back_populates="versions")
 
 
 class WorkflowRun(Base):
@@ -131,6 +172,44 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.VIEWER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Account lockout protection (brute-force defense)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class SystemSetting(Base):
+    """Admin-configurable runtime settings that should take effect without a
+    redeploy (e.g. the cloud-AI kill switch). Falls back to Settings/.env
+    defaults when a key is absent."""
+
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class AIUsageLog(Base):
+    """Audit trail of AI provider calls. Deliberately stores only metadata
+    (provider/operation/success/timing) - never the document text or prompt
+    content - so this log itself never becomes a privacy liability."""
+
+    __tablename__ = "ai_usage_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    operation: Mapped[str] = mapped_column(String(64))
+    is_cloud_provider: Mapped[bool] = mapped_column(Boolean, default=False)
+    document_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    success: Mapped[bool] = mapped_column(Boolean, default=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
 class AuditLog(Base):

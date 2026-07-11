@@ -33,18 +33,19 @@ app/
   workflow/    configurable stage pipeline engine + YAML workflow loader
   plugins/     plugin interface + manager + housing_estate_poster plugin
   search/      multi-field document search
-  api/         FastAPI backend (auth, documents, search, workflows, plugins)
-  gui/         PySide6 desktop shell (dashboard, explorer, workflow manager, search, logs, settings)
+  api/         FastAPI backend (auth+RBAC, documents/upload/review, search, workflows, plugins, settings)
+  gui/         PySide6 desktop shell (login, dashboard, explorer, workflow manager, review, search, logs, settings)
 config/
   rules/       districts.yaml, estates.yaml, aliases.yaml, validation.yaml, naming.yaml, poster_mappings.yaml
   workflows/   housing_estate_poster.yaml (and future workflow definitions)
 alembic/       database migrations
 tests/
-  unit/        rule engine, workflow engine, PDF engine, AI factory
-  integration/ end-to-end Housing Estate Poster pipeline test
+  unit/        rule engine, workflow engine, PDF engine, AI factory, account security, AI privacy guard
+  integration/ end-to-end Housing Estate Poster pipeline, review/versioning/rollback
+  security/    RBAC, path traversal, malicious upload, auth requirement tests
 sample_data/   generated sample poster + application PDF for demos
-docs/          architecture, developer guide, admin guide, user manual, API docs
-scripts/       sample data generator, Windows/macOS build scripts
+docs/          installation, architecture, developer/admin guides, user manual, API docs, security, privacy
+scripts/       sample data generator, admin bootstrap, DB backup, Windows/macOS build scripts
 ```
 
 ## Quick start
@@ -54,12 +55,16 @@ python3.12 -m venv .venv
 source .venv/bin/activate          # .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 cp .env.example .env
-
-# Generate demo assets (a poster image + application PDF)
-python scripts/generate_sample_data.py
+# Edit .env: set OAP_SECRET_KEY and OAP_ENCRYPTION_KEY (see docs/INSTALLATION.md)
 
 # Apply database migrations
 alembic upgrade head
+
+# Create the first administrator account (never over the network)
+python scripts/create_admin.py --username admin --full-name "Jane Doe"
+
+# Generate demo assets (a poster image + application PDF)
+python scripts/generate_sample_data.py
 
 # Run the API
 python -m app.api.main
@@ -68,6 +73,8 @@ python -m app.api.main
 # Run the desktop GUI
 python -m app.gui.main
 ```
+
+Full walkthrough: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ### Optional heavy dependencies
 
@@ -107,24 +114,39 @@ No other file changes are required — the Workflow Manager screen and the
 
 ## Documentation
 
+- [Installation Guide](docs/INSTALLATION.md)
 - [Architecture](docs/architecture.md)
 - [Developer Guide](docs/developer_guide.md)
 - [Administrator Guide](docs/admin_guide.md)
 - [User Manual](docs/user_manual.md)
 - [API Reference](docs/api.md)
+- [Security Guide](docs/SECURITY.md)
+- [Privacy Guide](docs/PRIVACY.md)
+- [Data Handling Reference](docs/DATA_HANDLING.md)
+- [Privacy Policy Template](docs/PRIVACY_POLICY_TEMPLATE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-## Security
+## Security & privacy
 
-Local-first by default (SQLite, no external calls unless a cloud AI
-provider is explicitly configured). Every action is written to the audit
-log. Secrets are encrypted at rest via `app/core/security.py`. Role-based
-permissions (`admin` / `editor` / `reviewer` / `viewer`) gate API access.
+Local-first by default: SQLite, no external network calls, and cloud AI
+providers are refused until an administrator explicitly enables them
+(`allow_cloud_ai`, off by default) — see `docs/PRIVACY.md`. Every action
+(login, upload, workflow run, approval, rollback, deletion, settings
+change) is written to the audit log. Passwords are bcrypt-hashed with a
+12+ character policy and account lockout after 5 failed attempts.
+Role-based permissions (`admin` / `editor` / `reviewer` / `viewer`) gate
+every API endpoint and are mirrored in the desktop GUI. File uploads are
+validated by extension, size, and magic-byte signature, and every
+client-supplied path is checked against approved import roots to prevent
+path traversal. Full detail in `docs/SECURITY.md`.
 
 ## Status
 
-This is the initial production-ready core: workflow engine, plugin system,
-rule engine, AI/OCR/PDF/image engines, FastAPI backend, PySide6 desktop
-shell, and the fully working Housing Estate Poster workflow, with unit and
-integration test coverage. Signed Windows `.exe` / macOS `.app` installers
-require a per-platform build step — see `scripts/build_windows.py` and
-`scripts/build_macos.py`.
+Production-hardened core: workflow engine, plugin system, rule engine,
+AI/OCR/PDF/image engines, FastAPI backend (RBAC, rate limiting, security
+headers, audit logging), PySide6 desktop shell (with login, RBAC-gated
+actions, and a live dashboard/review queue), and the fully working Housing
+Estate Poster workflow with approval + version history + rollback. 66
+unit/integration/security tests pass. Signed Windows `.exe` / macOS `.app`
+installers require a per-platform build step — see
+`scripts/build_windows.py` and `scripts/build_macos.py`.

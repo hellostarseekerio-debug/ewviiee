@@ -47,15 +47,50 @@ Disabling a plugin here removes it from the Workflow Manager and
 ## User management and roles
 
 Roles, lowest to highest privilege: `viewer`, `reviewer`, `editor`, `admin`.
-Create a user via `POST /api/auth/users` (see `docs/api.md`). Role checks
-are enforced per-endpoint via `app.api.deps.require_role`.
+
+- The **first** account in a fresh database can self-register via
+  `POST /api/auth/users` and is always forced to `admin` regardless of the
+  requested role - this is the one-time bootstrap path.
+- Every account after that must be created by an authenticated admin via
+  `POST /api/auth/admin/users`, or (recommended, since it never touches the
+  network) by running `python scripts/create_admin.py --username <name>
+  --role <role>` directly on the server.
+- Passwords must be 12+ characters with upper/lower/digit/special
+  character. Accounts lock for 15 minutes after 5 consecutive failed
+  logins.
+- Role checks are enforced per-endpoint via `app.api.deps.require_role`
+  and mirrored in the desktop GUI (see `docs/SECURITY.md` for the full
+  permission matrix).
+
+## Privacy controls
+
+The cloud-AI kill switch (`allow_cloud_ai`, default **off**) lives in the
+`system_settings` table and can be changed live from the GUI's
+Settings → Privacy screen (admin only) or via `PUT /api/settings`. See
+`docs/PRIVACY.md` for exactly what is/isn't sent when it's enabled.
+
+## Approval workflow, version history, and rollback
+
+Every processed document starts `approval_status=pending`. A Reviewer (or
+above) approves or rejects it from the GUI's Review screen or
+`POST /api/documents/{id}/approve` / `/reject`. Every generated output is
+recorded as an immutable `DocumentVersion` (with a SHA-256 checksum) - the
+original source file is never modified. An Editor (or above) can restore
+an earlier version via the GUI or `POST /api/documents/{id}/rollback`,
+which copies that version's file forward as a new version rather than
+overwriting anything.
 
 ## Backups
 
-Configure `OAP_BACKUP_DIR` / retention via `Settings.backup_dir` and
-`backup_retention_days`. Back up the SQLite file (or run `pg_dump` for
-PostgreSQL) plus the `data/archive` and `data/export` directories on the
-same schedule — those directories hold the durable output artifacts.
+Run `python scripts/backup_db.py` on a schedule (daily is recommended) -
+it backs up the SQLite file plus `data/archive/` and `data/export/` into a
+single timestamped `.tar.gz` under `Settings.backup_dir`, and prunes
+backups older than `backup_retention_days` (default 90). For PostgreSQL,
+also run `pg_dump` on the same schedule (the script only reminds you to,
+since a live Postgres database can't be safely file-copied).
+
+**Restoring**: see `docs/TROUBLESHOOTING.md` "Backups" section for the
+exact restore commands.
 
 ## Logs and audit trail
 
@@ -67,9 +102,13 @@ same schedule — those directories hold the durable output artifacts.
 
 ## Troubleshooting
 
+See `docs/TROUBLESHOOTING.md` for the full guide. Quick reference:
+
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Workflow halts at `extract` with missing district/estate | OCR text too noisy or alias not configured | Add an alias in `config/rules/aliases.yaml` or `estates.yaml` |
 | OCR confidence always low | PaddleOCR/Tesseract not installed, or scan quality poor | `pip install -e ".[ocr]"`; check `OAP_OCR_CONFIDENCE_THRESHOLD` |
 | AI provider errors on startup | Missing API key/endpoint for the selected provider | Check `.env` values match `app/ai/factory.py` requirements |
 | Workflow not visible in GUI/API | Plugin not in `OAP_ENABLED_PLUGINS`, or YAML missing under `config/workflows/` | Verify both files exist and plugin id matches |
+| "Path is outside all permitted import roots" | Client passed a path outside the approved import/archive/export roots | Move the file into an approved root, or use `POST /api/documents/upload` |
+| Account locked | 5 consecutive failed logins | Wait 15 minutes, or reset via `scripts/create_admin.py` |

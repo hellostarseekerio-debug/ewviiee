@@ -39,6 +39,19 @@ def get_session_factory() -> sessionmaker:
     return _SessionLocal
 
 
+def reset_engine() -> None:
+    """Disposes the cached engine/session factory so the next call to
+    `get_engine()`/`get_session_factory()` rebuilds from the current
+    Settings. Without this, changing `OAP_SQLITE_PATH` (or any other
+    database setting) at runtime - e.g. between test cases, or via a
+    config reload - would silently keep talking to the old database."""
+    global _engine, _SessionLocal
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _SessionLocal = None
+
+
 @contextmanager
 def session_scope() -> Iterator[Session]:
     """Provide a transactional scope for a series of operations."""

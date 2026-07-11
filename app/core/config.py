@@ -67,7 +67,19 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(default="change-me-in-production")
     encryption_key: str | None = None
-    access_token_expire_minutes: int = 480
+    access_token_expire_minutes: int = 60
+    cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    api_reload: bool = False
+    rate_limit_login: str = "5/minute"
+    rate_limit_default: str = "120/minute"
+
+    # File upload safety
+    max_upload_size_bytes: int = 25 * 1024 * 1024  # 25 MB
+    allowed_upload_extensions: list[str] = Field(
+        default_factory=lambda: [".pdf", ".docx", ".png", ".jpg", ".jpeg", ".tiff", ".zip"]
+    )
 
     # Storage roots for import sources
     dropbox_root: Path | None = None
@@ -93,6 +105,25 @@ class Settings(BaseSettings):
             return self.postgres_dsn
         self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{self.sqlite_path}"
+
+    def assert_secure_for_production(self) -> None:
+        """Refuses to start with known-insecure defaults when
+        OAP_ENVIRONMENT=production. Called at API/GUI startup."""
+        if self.environment != "production":
+            return
+        if self.secret_key == "change-me-in-production":
+            raise RuntimeError(
+                "OAP_SECRET_KEY is still the insecure default. Set a unique random "
+                "secret (e.g. `python -c \"import secrets; print(secrets.token_urlsafe(48))\"`) "
+                "before running in production."
+            )
+        if not self.encryption_key:
+            raise RuntimeError(
+                "OAP_ENCRYPTION_KEY is not set. Required in production so encrypted "
+                "secrets survive restarts - see app.core.security.EncryptionKeyMissingError."
+            )
+        if "*" in self.cors_allowed_origins:
+            raise RuntimeError("OAP_CORS_ALLOWED_ORIGINS must not include '*' in production.")
 
 
 @lru_cache

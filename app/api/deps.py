@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.models import User, UserRole
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, is_account_locked, role_rank
 from app.plugins.manager import PluginManager
 from app.workflow.engine import WorkflowEngine
 
@@ -38,14 +38,14 @@ def get_current_user(
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
+    if is_account_locked(user):
+        raise HTTPException(status.HTTP_423_LOCKED, "Account is temporarily locked")
     return user
 
 
 def require_role(minimum: UserRole):
-    rank = {UserRole.VIEWER: 0, UserRole.REVIEWER: 1, UserRole.EDITOR: 2, UserRole.ADMIN: 3}
-
     def checker(user: User = Depends(get_current_user)) -> User:
-        if rank[user.role] < rank[minimum]:
+        if role_rank(user.role) < role_rank(minimum):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
         return user
 

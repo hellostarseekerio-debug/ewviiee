@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class DocumentOut(BaseModel):
@@ -22,8 +22,24 @@ class DocumentOut(BaseModel):
     version: str | None
     ai_confidence: float | None
     ocr_confidence: float | None
+    approval_status: str
+    reviewed_by: str | None
+    reviewed_at: datetime | None
+    review_notes: str | None
     created_at: datetime
     updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DocumentVersionOut(BaseModel):
+    id: str
+    version_number: int
+    file_path: str
+    checksum_sha256: str | None
+    created_by: str | None
+    notes: str | None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -35,7 +51,7 @@ class SearchResponse(BaseModel):
 
 class WorkflowRunRequest(BaseModel):
     workflow_name: str
-    document_paths: list[str]
+    document_paths: list[str] = Field(..., min_length=1, max_length=500)
     triggered_by: str | None = None
 
 
@@ -67,7 +83,27 @@ class TokenResponse(BaseModel):
 
 
 class UserCreateRequest(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=64)
     password: str
     full_name: str | None = None
     role: str = "viewer"
+
+    @field_validator("username")
+    @classmethod
+    def username_must_be_safe(cls, value: str) -> str:
+        if not value.replace("_", "").replace(".", "").replace("-", "").isalnum():
+            raise ValueError("Username may only contain letters, numbers, '.', '_', '-'")
+        return value
+
+
+class ReviewDecisionRequest(BaseModel):
+    notes: str | None = None
+
+
+class RollbackRequest(BaseModel):
+    version_id: str
+
+
+class SystemSettingUpdateRequest(BaseModel):
+    key: str
+    value: str

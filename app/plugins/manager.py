@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib
 
-from app.ai.factory import get_ai_provider
+from app.ai.factory import get_guarded_ai_provider
 from app.core.config import Settings, get_settings
 from app.core.logging_config import get_logger
 from app.plugins.base import Plugin
@@ -42,7 +42,7 @@ class PluginManager:
 
     def _safe_ai_provider(self):
         try:
-            return get_ai_provider()
+            return get_guarded_ai_provider(self._settings)
         except Exception as exc:
             logger.warning("ai_provider_unavailable", error=str(exc))
             return None
