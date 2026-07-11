@@ -126,3 +126,9 @@ def test_soft_delete_hides_document_from_listing(tmp_path, bootstrap_admin):
 
     listing = client.get("/api/documents", headers=admin_headers).json()
     assert all(doc["id"] != document_id for doc in listing)
+
+    # Version history must be equally hidden once soft-deleted - a document
+    # that 404s on GET /api/documents/{id} must not still expose its
+    # version history via a side channel.
+    versions_response = client.get(f"/api/documents/{document_id}/versions", headers=admin_headers)
+    assert versions_response.status_code == 404

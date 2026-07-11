@@ -40,6 +40,15 @@ unencrypted secret).
 - **Lost device recovery**: an administrator can force-disable a user's
   MFA via `POST /api/auth/admin/users/{username}/mfa/reset`, after which
   the user can re-enroll. This is logged to the audit trail.
+- **Brute-force protection on MFA itself**: `/mfa/verify`, `/mfa/confirm`,
+  and `/mfa/disable` are all rate-limited (`OAP_RATE_LIMIT_LOGIN`) and a
+  wrong code/password on any of them counts toward the same account
+  lockout as a failed login. This matters specifically because
+  `/mfa/confirm` and `/mfa/disable` are reachable with nothing but a
+  stolen *session token* (no password needed) - without this, an attacker
+  holding a stolen token could brute-force a 6-digit TOTP code or the
+  account's real password with unlimited attempts, bypassing the lockout
+  that protects the login endpoint.
 - MFA is not currently *mandated* office-wide (no "require MFA for all
   users" switch) - it is opt-in per account. If your office requires it for
   everyone, enforce that operationally (e.g. as a condition of account
@@ -132,8 +141,10 @@ before it is processed:
   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
   ```
 - `Settings.assert_secure_for_production()` refuses to start when
-  `OAP_ENVIRONMENT=production` and either `OAP_SECRET_KEY` is still the
-  shipped default or `OAP_ENCRYPTION_KEY` is unset.
+  `OAP_ENVIRONMENT=production` and: `OAP_SECRET_KEY` is still the shipped
+  default, `OAP_SECRET_KEY` is shorter than 32 characters (a short key is
+  brute-forceable and would let an attacker forge JWTs), `OAP_ENCRYPTION_KEY`
+  is unset, or `OAP_CORS_ALLOWED_ORIGINS` contains `"*"`.
 - AI provider API keys are read only from environment variables/`.env` on
   the server process; they are never sent to, stored in, or displayed by
   the desktop GUI or any HTTP response.

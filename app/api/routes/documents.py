@@ -95,7 +95,7 @@ def list_documents(
 @router.get("/{document_id}/versions", response_model=list[DocumentVersionOut])
 def list_versions(document_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
     document = db.get(Document, document_id)
-    if document is None:
+    if document is None or document.is_deleted:
         raise HTTPException(404, "Document not found")
     return document.versions
 

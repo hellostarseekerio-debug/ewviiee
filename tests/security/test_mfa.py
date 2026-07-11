@@ -127,3 +127,40 @@ def test_admin_can_reset_mfa_for_locked_out_user(bootstrap_admin, encryption_key
         "/api/auth/token", data={"username": "editor1", "password": "EditorPass123!"}
     )
     assert login_after_reset.json()["mfa_required"] is False
+
+
+def test_mfa_confirm_locks_account_after_repeated_wrong_codes(bootstrap_admin, encryption_key_env):
+    """A stolen session token must not let an attacker brute-force the
+    6-digit TOTP confirmation code with unlimited attempts - this must
+    trip the same account lockout that protects the login endpoint."""
+    client, admin_headers = bootstrap_admin
+    client.post("/api/auth/mfa/setup", headers=admin_headers)
+
+    for _ in range(5):
+        response = client.post("/api/auth/mfa/confirm", json={"code": "000000"}, headers=admin_headers)
+        assert response.status_code == 400
+
+    # The account is now locked - even a correct-looking request is blocked.
+    locked_response = client.post("/api/auth/mfa/confirm", json={"code": "000000"}, headers=admin_headers)
+    assert locked_response.status_code == 423
+
+
+def test_mfa_disable_locks_account_after_repeated_wrong_passwords(bootstrap_admin, encryption_key_env):
+    """Same reasoning as mfa/confirm: guessing the account's real password
+    via mfa/disable must not bypass the login lockout mechanism."""
+    import pyotp as _pyotp
+
+    client, admin_headers = bootstrap_admin
+    setup = client.post("/api/auth/mfa/setup", headers=admin_headers)
+    client.post(
+        "/api/auth/mfa/confirm", json={"code": _pyotp.TOTP(setup.json()["secret"]).now()}, headers=admin_headers
+    )
+
+    for _ in range(5):
+        response = client.post("/api/auth/mfa/disable", json={"password": "WrongPassword!"}, headers=admin_headers)
+        assert response.status_code == 401
+
+    locked_response = client.post(
+        "/api/auth/mfa/disable", json={"password": "WrongPassword!"}, headers=admin_headers
+    )
+    assert locked_response.status_code == 423

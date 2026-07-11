@@ -146,7 +146,8 @@ def verify_mfa(request: Request, payload: MFAVerifyRequest, db: Session = Depend
 
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)
-def setup_mfa(db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.VIEWER))):
+@limiter.limit(lambda: get_settings().rate_limit_default)
+def setup_mfa(request: Request, db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.VIEWER))):
     """Begins MFA enrollment for the calling user. Returns a secret (for
     manual entry) and an otpauth:// URI (render as a QR code in the GUI),
     plus one-time recovery codes shown only now. MFA is not yet *required*
@@ -174,38 +175,63 @@ def setup_mfa(db: Session = Depends(get_db), current_user: User = Depends(requir
 
 
 @router.post("/mfa/confirm")
+@limiter.limit(lambda: get_settings().rate_limit_login)
 def confirm_mfa(
+    request: Request,
     payload: MFAConfirmRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.VIEWER)),
 ):
+    if is_account_locked(current_user):
+        raise HTTPException(status.HTTP_423_LOCKED, "Account is temporarily locked")
+
     if not current_user.mfa_pending_secret_encrypted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No MFA setup in progress - call mfa/setup first")
 
     secret = SecretBox().decrypt(current_user.mfa_pending_secret_encrypted)
     if not verify_totp_code(secret, payload.code):
+        # A stolen session token must not let an attacker brute-force the
+        # 6-digit TOTP code with unlimited attempts - count it the same as
+        # a failed login so the same lockout policy applies here too.
+        register_failed_login(current_user)
+        db.commit()
+        record_audit(actor=current_user.username, action="mfa_confirm_failed", success=False)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect code - check your authenticator app and try again")
 
     current_user.mfa_secret_encrypted = current_user.mfa_pending_secret_encrypted
     current_user.mfa_pending_secret_encrypted = None
     current_user.mfa_enabled = True
+    register_successful_login(current_user)
     db.commit()
     record_audit(actor=current_user.username, action="mfa_enabled")
     return {"mfa_enabled": True}
 
 
 @router.post("/mfa/disable")
+@limiter.limit(lambda: get_settings().rate_limit_login)
 def disable_mfa(
+    request: Request,
     payload: MFADisableRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.VIEWER)),
 ):
+    if is_account_locked(current_user):
+        raise HTTPException(status.HTTP_423_LOCKED, "Account is temporarily locked")
+
     if not verify_password(payload.password, current_user.hashed_password):
+        # Same reasoning as mfa/confirm above: a stolen session token must
+        # not allow unlimited password guesses via this endpoint, bypassing
+        # the lockout that the login endpoint enforces.
+        register_failed_login(current_user)
+        db.commit()
+        record_audit(actor=current_user.username, action="mfa_disable_failed", success=False)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect password")
+
     current_user.mfa_enabled = False
     current_user.mfa_secret_encrypted = None
     current_user.mfa_pending_secret_encrypted = None
     current_user.mfa_recovery_codes = None
+    register_successful_login(current_user)
     db.commit()
     record_audit(actor=current_user.username, action="mfa_disabled")
     return {"mfa_enabled": False}

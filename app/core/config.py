@@ -117,6 +117,12 @@ class Settings(BaseSettings):
                 "secret (e.g. `python -c \"import secrets; print(secrets.token_urlsafe(48))\"`) "
                 "before running in production."
             )
+        if len(self.secret_key) < 32:
+            raise RuntimeError(
+                "OAP_SECRET_KEY is too short (must be at least 32 characters) - a short or "
+                "guessable secret lets an attacker forge JWTs. Generate one with "
+                "`python -c \"import secrets; print(secrets.token_urlsafe(48))\"`."
+            )
         if not self.encryption_key:
             raise RuntimeError(
                 "OAP_ENCRYPTION_KEY is not set. Required in production so encrypted "
