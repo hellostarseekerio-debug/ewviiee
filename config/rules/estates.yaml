@@ -1,0 +1,27 @@
+# Housing estate definitions, each linked to a district id from districts.yaml.
+# Add new estates here - no code change required.
+estates:
+  - id: lam_tin_estate
+    name: "Lam Tin Estate"
+    district_id: kwun_tong
+    aliases: ["藍田邨", "蓝田邨"]
+  - id: choi_hung_estate
+    name: "Choi Hung Estate"
+    district_id: kwun_tong
+    aliases: ["彩虹邨"]
+  - id: tsz_wan_shan_estate
+    name: "Tsz Wan Shan Estate"
+    district_id: wong_tai_sin
+    aliases: ["慈雲山邨", "慈云山邨"]
+  - id: wo_che_estate
+    name: "Wo Che Estate"
+    district_id: sha_tin
+    aliases: ["禾輋邨"]
+  - id: kwai_shing_east_estate
+    name: "Kwai Shing East Estate"
+    district_id: kwai_tsing
+    aliases: ["葵盛東邨", "葵盛东邨"]
+  - id: butterfly_estate
+    name: "Butterfly Estate"
+    district_id: tuen_mun
+    aliases: ["蝴蝶邨"]

@@ -1,0 +1,7 @@
+# Free-form text normalization aliases (OCR noise -> canonical term).
+# Keys are matched after lowercasing + whitespace-stripping.
+aliases:
+  "邨": "estate"
+  "屋邨": "estate"
+  "议员": "councillor"
+  "議員": "councillor"

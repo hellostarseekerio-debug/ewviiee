@@ -1,0 +1,34 @@
+name: housing_estate_poster
+display_name: "Housing Estate Poster Applications"
+plugin: housing_estate_poster
+description: >
+  Imports Dropbox posters and application PDFs, identifies district/estate/
+  politician/title/version, updates dates and replaces poster images, then
+  validates, generates, exports and archives the final application PDF.
+
+stages:
+  - import
+  - classify
+  - ocr
+  - extract
+  - validate
+  - apply_rules
+  - generate
+  - review
+  - export
+  - archive
+  - log
+
+stage_config:
+  import:
+    source: dropbox
+    poster_glob: "**/*.png"
+    application_glob: "**/*application*.pdf"
+  ocr:
+    languages: ["ch_tra", "en"]
+  review:
+    require_manual_review: false
+  export:
+    output_category: housing_estate_poster
+  archive:
+    keep_source: true

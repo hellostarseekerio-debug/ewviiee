@@ -1,0 +1,21 @@
+# Validation rules applied before a document can proceed to Generate/Export.
+rules:
+  - field: district
+    required: true
+  - field: estate
+    required: true
+  - field: politician
+    required: true
+    min_length: 2
+  - field: title
+    required: true
+    min_length: 2
+  - field: version
+    required: false
+  - field: reference_number
+    required: false
+    pattern: "^[A-Z]{2,4}-\\d{4,8}$"
+
+date_rules:
+  application_date_format: "%Y-%m-%d"
+  footer_date_format: "%d/%m/%Y"

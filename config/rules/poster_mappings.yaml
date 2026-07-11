@@ -1,0 +1,12 @@
+# Maps logical poster slots to the page index they appear on in the
+# application PDF template, and maps poster category keys to source
+# filenames/paths under the Dropbox import root. Fully configurable -
+# no hardcoded estate-to-page mapping in Python.
+page_mappings:
+  main_poster: 0
+  secondary_poster: 1
+  footer_date: 2
+
+poster_mappings:
+  standard: "posters/standard_template.png"
+  festive: "posters/festive_template.png"

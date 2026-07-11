@@ -1,0 +1,32 @@
+# Human-readable reference copy of the runtime configuration.
+# Actual runtime values are read from environment variables / .env
+# (see app/core/config.py and .env.example) - this file documents the
+# defaults and is a convenient template for administrators.
+
+app_name: "Office Automation Platform"
+environment: development
+
+database:
+  backend: sqlite
+  sqlite_path: ./data/office_automation.db
+
+ai:
+  provider: local
+  openai_model: gpt-4o-mini
+  anthropic_model: claude-sonnet-5
+  local_llm_base_url: http://localhost:11434
+  local_llm_model: llama3
+
+ocr:
+  primary_engine: paddle
+  fallback_engine: tesseract
+  confidence_threshold: 0.75
+  max_retries: 2
+  languages: [ch_tra, ch_sim, en]
+
+plugins:
+  enabled:
+    - housing_estate_poster
+
+backup:
+  retention_days: 90

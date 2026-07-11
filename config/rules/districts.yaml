@@ -1,0 +1,18 @@
+# District definitions used across all workflows.
+# Add new districts here - no code change required.
+districts:
+  - id: kwun_tong
+    name: "Kwun Tong"
+    aliases: ["觀塘", "观塘", "KT"]
+  - id: wong_tai_sin
+    name: "Wong Tai Sin"
+    aliases: ["黃大仙", "黄大仙", "WTS"]
+  - id: sha_tin
+    name: "Sha Tin"
+    aliases: ["沙田", "ST"]
+  - id: kwai_tsing
+    name: "Kwai Tsing"
+    aliases: ["葵青", "KwaiChung", "葵涌"]
+  - id: tuen_mun
+    name: "Tuen Mun"
+    aliases: ["屯門", "屯门", "TM"]

@@ -1,0 +1,8 @@
+# Output filename pattern + folder routing. Fields come from extracted document metadata.
+pattern: "{district}_{estate}_{version}_{date}"
+date_format: "%Y%m%d"
+
+output_folders:
+  housing_estate_poster: "HousingEstatePosters"
+  banner_application: "BannerApplications"
+  government_form: "GovernmentForms"
