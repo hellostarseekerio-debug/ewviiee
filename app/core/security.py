@@ -61,6 +61,16 @@ def verify_password(password: str, hashed: str) -> bool:
     return _pwd_context.verify(password, hashed)
 
 
+def hash_recovery_code(code: str) -> str:
+    """MFA recovery codes use the same bcrypt context as passwords - they
+    are one-time-use secrets and deserve the same at-rest protection."""
+    return _pwd_context.hash(code)
+
+
+def verify_recovery_code(code: str, hashed: str) -> bool:
+    return _pwd_context.verify(code, hashed)
+
+
 def is_account_locked(user) -> bool:
     """`user` is an app.core.models.User; kept duck-typed to avoid an import cycle."""
     return user.locked_until is not None and user.locked_until > datetime.utcnow()
@@ -78,13 +88,22 @@ def register_successful_login(user) -> None:
     user.last_login_at = datetime.utcnow()
 
 
-def create_access_token(subject: str, role: str, expires_minutes: int | None = None) -> str:
+def create_access_token(
+    subject: str, role: str, expires_minutes: int | None = None, scope: str = "full"
+) -> str:
+    """`scope="full"` is a normal, API-usable access token. `scope="mfa_pending"`
+    is issued after a correct password but before the second MFA factor is
+    verified - `get_current_user` rejects it, only `/api/auth/mfa/verify`
+    accepts it, and it is deliberately short-lived (see MFA_PENDING_EXPIRE_MINUTES)."""
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=expires_minutes or settings.access_token_expire_minutes
     )
-    payload = {"sub": subject, "role": role, "exp": expire}
+    payload = {"sub": subject, "role": role, "scope": scope, "exp": expire}
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+
+MFA_PENDING_EXPIRE_MINUTES = 5
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:

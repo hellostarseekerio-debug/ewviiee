@@ -33,6 +33,7 @@ dependencies = [
     "bcrypt==4.0.1",
     "python-jose[cryptography]>=3.3",
     "slowapi>=0.1.9",
+    "pyotp>=2.9",
 ]
 
 [project.optional-dependencies]

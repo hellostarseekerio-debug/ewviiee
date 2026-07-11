@@ -33,10 +33,53 @@ OAuth2 password grant. Form-encoded `username` + `password`. Rate-limited
 account is in lockout after repeated failed attempts.
 
 ```json
-{ "access_token": "...", "token_type": "bearer" }
+{ "access_token": "...", "token_type": "bearer", "mfa_required": false, "pending_token": null }
 ```
 
+If the account has MFA enabled, `access_token` is `null` and
+`mfa_required` is `true` instead - exchange `pending_token` via
+`POST /api/auth/mfa/verify` (below) for a real token.
+
 Pass the token as `Authorization: Bearer <token>` on every other request.
+
+### `POST /api/auth/mfa/setup` (authenticated)
+
+Begins MFA enrollment for the calling user. Requires `OAP_ENCRYPTION_KEY`
+to be configured server-side (500 error otherwise). Returns:
+
+```json
+{ "secret": "...", "otpauth_uri": "otpauth://totp/...", "recovery_codes": ["...", "... (10 total)"] }
+```
+
+Recovery codes are shown only this once.
+
+### `POST /api/auth/mfa/confirm` (authenticated)
+
+```json
+{ "code": "123456" }
+```
+
+Verifies the first code from the authenticator app and enables MFA for
+the account.
+
+### `POST /api/auth/mfa/verify`
+
+```json
+{ "pending_token": "...", "code": "123456" }
+```
+
+`code` may be a 6-digit TOTP code or a one-time recovery code. Returns a
+normal `TokenResponse` with a usable `access_token` on success.
+
+### `POST /api/auth/mfa/disable` (authenticated)
+
+```json
+{ "password": "current-password" }
+```
+
+### `POST /api/auth/admin/users/{username}/mfa/reset` (requires admin)
+
+Force-disables MFA for another user (lost-device recovery). Audit logged.
 
 ## Documents
 

@@ -63,6 +63,18 @@ click a row to preview details.
 updates automatically as an administrator adds new workflows — no
 application update needed.
 
+## Turning on two-factor authentication (recommended)
+
+In **Settings → Security**, click **Enable Two-Factor Authentication**.
+You'll be shown a code to add to an authenticator app on your phone
+(Google Authenticator, Microsoft Authenticator, Authy, etc.) and a list of
+one-time recovery codes — **write these down and store them somewhere
+safe**, they are shown only once and are your only way back in if you lose
+your phone. From then on, signing in asks for a 6-digit code from the app
+in addition to your password. If you ever lose access to your
+authenticator app, use a recovery code to sign in, or ask an administrator
+to reset your two-factor authentication.
+
 ## Changing appearance and privacy controls
 
 **Settings** lets you switch between light and dark themes immediately, and

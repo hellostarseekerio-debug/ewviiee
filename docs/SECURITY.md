@@ -19,6 +19,31 @@ effective. It is written for the office's IT administrator.
 - The login endpoint (`POST /api/auth/token`) is rate-limited
   (`OAP_RATE_LIMIT_LOGIN`, default `5/minute` per client IP) as defense in
   depth against brute-force attempts, in addition to account lockout.
+
+## Multi-factor authentication (MFA)
+
+Any user can enable TOTP-based MFA (compatible with Google Authenticator,
+Authy, Microsoft Authenticator, etc.) from the GUI's Settings screen or via
+`POST /api/auth/mfa/setup` + `/mfa/confirm`. Requires `OAP_ENCRYPTION_KEY`
+to be configured server-side (the TOTP secret is encrypted at rest via
+`SecretBox` - it refuses to enable MFA otherwise rather than storing an
+unencrypted secret).
+
+- **Login flow when enabled**: `POST /api/auth/token` returns
+  `{"mfa_required": true, "pending_token": "..."}` instead of a usable
+  access token. The pending token is scoped (`scope=mfa_pending`), expires
+  in 5 minutes, and every other endpoint rejects it -
+  `POST /api/auth/mfa/verify` (with the pending token + a 6-digit code or a
+  recovery code) exchanges it for a real access token.
+- **Recovery codes**: 10 one-time-use codes are shown once at enrollment
+  (bcrypt-hashed at rest, like passwords). Each is consumed on use.
+- **Lost device recovery**: an administrator can force-disable a user's
+  MFA via `POST /api/auth/admin/users/{username}/mfa/reset`, after which
+  the user can re-enroll. This is logged to the audit trail.
+- MFA is not currently *mandated* office-wide (no "require MFA for all
+  users" switch) - it is opt-in per account. If your office requires it for
+  everyone, enforce that operationally (e.g. as a condition of account
+  provisioning) until a mandatory-MFA policy setting is added.
 - There is deliberately **no open user-registration endpoint**. The very
   first account in an empty database can self-register via
   `POST /api/auth/users` (and is always forced to the `admin` role

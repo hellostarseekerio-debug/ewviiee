@@ -89,19 +89,60 @@ daily. See `docs/admin_guide.md` for restore instructions.
 
 ## Building a standalone installer
 
-See `scripts/build_windows.py` and `scripts/build_macos.py`
-(PyInstaller-based). These must be run on the target OS - PyInstaller does
-not cross-compile. Run with `--smoke-test` first to verify PyInstaller and
-the GUI entrypoint are ready before attempting a full build:
+Both platforms follow the same two steps: PyInstaller bundles the app,
+then a platform-native packager wraps that into the artifact you actually
+hand to office staff. These must run on the target OS - PyInstaller does
+not cross-compile.
+
+### Windows: .exe installer
 
 ```bash
-python scripts/build_windows.py --smoke-test   # or build_macos.py
-python scripts/build_windows.py                # full build
+python scripts/build_windows.py --smoke-test   # verify PyInstaller + entrypoint first
+python scripts/build_windows.py                # full build -> dist/OfficeAutomationPlatform/
 ```
 
-Output: `dist/OfficeAutomationPlatform/OfficeAutomationPlatform.exe`
-(Windows) or `dist/OfficeAutomationPlatform.app` (macOS, unsigned - see
-the script's docstring for code-signing/notarization notes).
+This bundles `config/`, `alembic/`, and `alembic.ini` alongside the
+executable, and embeds version metadata from
+`packaging/windows/version_info.txt`. To produce a proper installer with a
+Start Menu shortcut and uninstaller:
+
+```bash
+# Install Inno Setup first: https://jrsoftware.org/isinfo.php
+iscc packaging\windows\installer.iss
+```
+
+Output: `dist/installer/OfficeAutomationPlatform-Setup-0.1.0.exe`. The
+installer deliberately does **not** auto-create a database or admin
+account - staff must still follow this guide's steps 3-4 after installing.
+
+Optional: drop your office's icon at `packaging/windows/icon.ico` before
+building for a branded result (none is shipped - see that path's
+referencing comment in `build_windows.py`).
+
+### macOS: .app / .dmg
+
+```bash
+python scripts/build_macos.py --smoke-test     # verify PyInstaller + entrypoint first
+python scripts/build_macos.py                  # full build -> dist/OfficeAutomationPlatform.app
+bash packaging/macos/create_dmg.sh             # wrap into dist/OfficeAutomationPlatform-0.1.0.dmg
+```
+
+The `.app`/`.dmg` are **unsigned** by default - macOS Gatekeeper will block
+them on any machine other than the one that built them. For real
+distribution, you need an Apple Developer ID certificate; see the
+`codesign`/`xcrun notarytool`/`xcrun stapler` commands documented in
+`packaging/macos/create_dmg.sh`'s header comment.
+
+Optional: drop your office's icon at `packaging/macos/icon.icns` before
+building for a branded result (none is shipped).
+
+### What ships in the installer vs. what doesn't
+
+Included: the application, `config/` (rule YAML), `alembic/` (migrations),
+`.env.example`, and key docs. **Not** included, by design: any `.env` file,
+database file, encryption/secret keys, or user accounts - every
+installation starts from the same clean slate described in this guide,
+never with default credentials baked in.
 
 ## Troubleshooting
 

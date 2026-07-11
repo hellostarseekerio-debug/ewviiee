@@ -78,8 +78,29 @@ class PluginOut(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
+    access_token: str | None = None
     token_type: str = "bearer"
+    mfa_required: bool = False
+    pending_token: str | None = None
+
+
+class MFASetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+    recovery_codes: list[str]
+
+
+class MFAConfirmRequest(BaseModel):
+    code: str
+
+
+class MFADisableRequest(BaseModel):
+    password: str
+
+
+class MFAVerifyRequest(BaseModel):
+    pending_token: str
+    code: str
 
 
 class UserCreateRequest(BaseModel):

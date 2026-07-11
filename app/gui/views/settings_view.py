@@ -4,8 +4,12 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -14,8 +18,9 @@ from app.ai.factory import is_cloud_provider
 from app.core.config import get_settings
 from app.core.database import session_scope
 from app.core.logging_config import record_audit
-from app.core.models import UserRole
-from app.core.security import role_rank
+from app.core.mfa import generate_enrollment, hash_recovery_codes, verify_totp_code
+from app.core.models import User, UserRole
+from app.core.security import EncryptionKeyMissingError, SecretBox, role_rank, verify_password
 from app.core.system_settings import ALLOW_CLOUD_AI, get_bool_setting, set_setting
 
 
@@ -75,7 +80,97 @@ class SettingsView(QWidget):
         note.setWordWrap(True)
         note.setStyleSheet("color: #888;")
         layout.addWidget(note)
+
+        security_heading = QLabel("Security")
+        security_heading.setStyleSheet("font-size: 16px; font-weight: 700; margin-top: 12px;")
+        layout.addWidget(security_heading)
+
+        with session_scope() as session:
+            fresh_user = session.get(User, current_user.id)
+            mfa_enabled = bool(fresh_user and fresh_user.mfa_enabled)
+
+        self.mfa_status_label = QLabel(
+            "Two-factor authentication: " + ("enabled" if mfa_enabled else "disabled")
+        )
+        layout.addWidget(self.mfa_status_label)
+
+        mfa_button_row = QHBoxLayout()
+        self.enable_mfa_button = QPushButton("Enable Two-Factor Authentication")
+        self.disable_mfa_button = QPushButton("Disable Two-Factor Authentication")
+        self.enable_mfa_button.setEnabled(not mfa_enabled)
+        self.disable_mfa_button.setEnabled(mfa_enabled)
+        self.enable_mfa_button.clicked.connect(self._enable_mfa)
+        self.disable_mfa_button.clicked.connect(self._disable_mfa)
+        mfa_button_row.addWidget(self.enable_mfa_button)
+        mfa_button_row.addWidget(self.disable_mfa_button)
+        mfa_button_row.addStretch()
+        layout.addLayout(mfa_button_row)
+
         layout.addStretch()
+
+    def _enable_mfa(self) -> None:
+        try:
+            box = SecretBox()
+        except EncryptionKeyMissingError:
+            QMessageBox.critical(
+                self, "Cannot enable MFA",
+                "The server administrator has not configured OAP_ENCRYPTION_KEY yet. "
+                "This must be set before two-factor authentication can be used - see docs/SECURITY.md.",
+            )
+            return
+
+        enrollment = generate_enrollment(self._current_user.username)
+
+        QMessageBox.information(
+            self, "Set up your authenticator app",
+            "Scan or manually enter this into your authenticator app "
+            f"(e.g. Google Authenticator, Authy):\n\n{enrollment.otpauth_uri}\n\n"
+            f"Manual entry secret: {enrollment.secret}\n\n"
+            "Save these one-time recovery codes somewhere safe - each can be used "
+            "once if you lose access to your authenticator app:\n\n"
+            + "\n".join(enrollment.recovery_codes),
+        )
+
+        code, ok = QInputDialog.getText(self, "Confirm setup", "Enter the 6-digit code to confirm:")
+        if not ok or not code.strip():
+            return
+        if not verify_totp_code(enrollment.secret, code.strip()):
+            QMessageBox.critical(self, "Incorrect code", "That code did not match - MFA was not enabled.")
+            return
+
+        with session_scope() as session:
+            user = session.get(User, self._current_user.id)
+            user.mfa_secret_encrypted = box.encrypt(enrollment.secret)
+            user.mfa_recovery_codes = hash_recovery_codes(enrollment.recovery_codes)
+            user.mfa_enabled = True
+        record_audit(actor=self._current_user.username, action="mfa_enabled")
+
+        self.mfa_status_label.setText("Two-factor authentication: enabled")
+        self.enable_mfa_button.setEnabled(False)
+        self.disable_mfa_button.setEnabled(True)
+        QMessageBox.information(self, "Enabled", "Two-factor authentication is now required at sign-in.")
+
+    def _disable_mfa(self) -> None:
+        password, ok = QInputDialog.getText(
+            self, "Confirm your password", "Password:", QLineEdit.Password
+        )
+        if not ok:
+            return
+
+        with session_scope() as session:
+            user = session.get(User, self._current_user.id)
+            if not verify_password(password, user.hashed_password):
+                QMessageBox.critical(self, "Incorrect password", "Two-factor authentication was not disabled.")
+                return
+            user.mfa_enabled = False
+            user.mfa_secret_encrypted = None
+            user.mfa_pending_secret_encrypted = None
+            user.mfa_recovery_codes = None
+        record_audit(actor=self._current_user.username, action="mfa_disabled")
+
+        self.mfa_status_label.setText("Two-factor authentication: disabled")
+        self.enable_mfa_button.setEnabled(True)
+        self.disable_mfa_button.setEnabled(False)
 
     def _theme_changed(self, value: str) -> None:
         if self._on_theme_change:

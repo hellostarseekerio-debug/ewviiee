@@ -109,19 +109,29 @@ class HousingEstatePosterPlugin(BasePlugin):
         title, version = self._extract_title_version(text)
         politician = self._extract_politician(text)
 
+        district_confidence = self.rule_engine.last_district_confidence
+        estate_confidence = self.rule_engine.last_estate_confidence
+
         context.fields.update(
             {
                 "district": district.name if district else None,
                 "district_id": district.id if district else None,
+                "district_confidence": district_confidence,
                 "estate": estate.name if estate else None,
                 "estate_id": estate.id if estate else None,
+                "estate_confidence": estate_confidence,
                 "title": title,
                 "version": version,
                 "politician": politician,
                 "date": datetime.utcnow(),
             }
         )
-        context.ai_confidence = 1.0 if (district and estate) else 0.5
+        # Overall confidence is the weaker of the two field-level matches -
+        # a low-confidence estate match should not be masked by a confident
+        # district match (or vice versa). Falls back to 0.0 (never
+        # resolved) rather than a misleadingly optimistic hardcoded value.
+        confidences = [c for c in (district_confidence, estate_confidence) if c is not None]
+        context.ai_confidence = min(confidences) if confidences else 0.0
 
     @staticmethod
     def _extract_title_version(text: str) -> tuple[str | None, str | None]:

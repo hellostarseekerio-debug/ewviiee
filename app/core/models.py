@@ -71,7 +71,7 @@ class Document(Base):
     title: Mapped[str | None] = mapped_column(String(512), nullable=True)
     politician: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
     reference_number: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
-    document_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    document_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     language: Mapped[str | None] = mapped_column(String(32), nullable=True)
     version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -98,7 +98,9 @@ class Document(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     deleted_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Indexed: every search/listing query orders by created_at DESC - at
+    # thousands of rows, an unindexed sort here forces a full-table scan.
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
@@ -178,6 +180,13 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Multi-factor authentication (TOTP). Secret is encrypted at rest via
+    # SecretBox; recovery codes are bcrypt-hashed, one-time-use.
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    mfa_secret_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mfa_pending_secret_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mfa_recovery_codes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
 
 class SystemSetting(Base):

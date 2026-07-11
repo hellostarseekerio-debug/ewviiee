@@ -65,8 +65,27 @@ flowchart TD
    - `app/image_engine` — resize/crop/align/optimize/validate/preview.
 3. **Rule Engine** (`app/rules`) — loads `config/rules/*.yaml` (districts,
    estates, aliases, validation rules, naming patterns, output folders) and
-   resolves noisy OCR text to canonical values via alias matching, falling
-   back to the AI provider only when no deterministic match exists.
+   resolves noisy OCR text to canonical values in three tiers:
+   1. **Exact/alias match** — configured name/id/alias found in the text
+      (confidence 1.0).
+   2. **Fuzzy match** (`app/rules/fuzzy.py`) — `difflib`-based similarity
+      scoring across every candidate, picking the single best-scoring
+      match (not just the first hit) above a threshold, so OCR noise/typos
+      ("Kwun Toung" → "Kwun Tong") still resolve without needing an exact
+      string. Short Latin abbreviations (e.g. "ST", "KT") require a
+      whole-word boundary match rather than raw substring containment, to
+      avoid false positives like "ST" matching inside "estate"; this
+      restriction does not apply to CJK aliases, which are unambiguous
+      even at 2 characters.
+   3. **AI fallback** — only when neither of the above resolves anything,
+      and only if a cloud/local AI provider is configured and allowed (see
+      `docs/PRIVACY.md`); reported at a fixed, conservative confidence
+      (0.6) since it's the least certain tier.
+
+   The resulting per-field confidence (`RuleEngine.last_district_confidence`
+   / `last_estate_confidence`) flows into `Document.ai_confidence`, so the
+   Review screen shows an honest confidence score rather than a hardcoded
+   constant.
 4. **Workflow Engine** (`app/workflow`) — runs a `WorkflowContext` through the
    ordered stages (`import → classify → ocr → extract → validate →
    apply_rules → generate → review → export → archive → log`) defined by a

@@ -7,14 +7,18 @@ WorkflowContext.stage_results and persists a ProcessingEvent + Document row
 per stage so the full processing history is queryable from the GUI.
 
 Error recovery: any stage may raise `WorkflowStageError` to halt the
-pipeline with a clear, user-facing reason (never a silent failure). Unhandled
-exceptions are caught, logged, and also halt the pipeline with the exception
-message surfaced.
+pipeline with a clear, user-facing reason (never a silent failure).
+Unhandled exceptions are caught, logged in full (with the raw technical
+message) server-side, and surfaced to the user via
+`app.core.friendly_errors.humanize_error` - so a non-technical member of
+staff sees "A required file could not be found..." instead of
+"FileNotFoundError: [Errno 2] ...".
 """
 from __future__ import annotations
 
 import time
 
+from app.core.friendly_errors import humanize_error
 from app.core.logging_config import get_logger, record_audit
 from app.plugins.base import Plugin
 from app.workflow.models import WorkflowContext, StageResult
@@ -88,7 +92,7 @@ class WorkflowEngine:
             except Exception as exc:  # pragma: no cover - defensive catch-all
                 duration_ms = int((time.perf_counter() - start) * 1000)
                 context.halted = True
-                context.halt_reason = f"Unexpected error in stage '{stage_name}': {exc}"
+                context.halt_reason = humanize_error(str(exc))
                 context.stage_results.append(
                     StageResult(
                         stage=stage_name, success=False, detail=str(exc), duration_ms=duration_ms

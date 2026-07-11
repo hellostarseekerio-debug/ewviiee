@@ -35,6 +35,10 @@ def get_current_user(
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    if payload.get("scope", "full") != "full":
+        # An MFA-pending token proves only the password step. It must never
+        # grant API access - only POST /api/auth/mfa/verify accepts it.
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "MFA verification required")
     user = db.query(User).filter(User.username == payload.get("sub")).first()
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")

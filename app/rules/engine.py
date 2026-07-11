@@ -18,6 +18,7 @@ import yaml
 
 from app.ai.base import AIProvider
 from app.core.logging_config import get_logger
+from app.rules.fuzzy import best_match
 from app.rules.schema import District, Estate, NamingRule, RuleSet, ValidationRule
 
 logger = get_logger("rules.engine")
@@ -81,27 +82,38 @@ class RuleEngine:
     def __init__(self, ruleset: RuleSet, ai_provider: AIProvider | None = None) -> None:
         self.ruleset = ruleset
         self._ai_provider = ai_provider
+        # Confidence of the most recent resolve_district/resolve_estate call
+        # (1.0 = exact/alias match, <1.0 = fuzzy match, None = resolved via
+        # AI or unresolved). Plugins read this to report an honest
+        # confidence score instead of a hardcoded constant.
+        self.last_district_confidence: float | None = None
+        self.last_estate_confidence: float | None = None
 
     # ---- Resolution --------------------------------------------------------
 
     def resolve_district(self, text: str) -> District | None:
-        normalized = _normalize(text)
-        for district in self.ruleset.districts:
-            candidates = [district.name, district.id, *district.aliases]
-            if any(_normalize(c) in normalized or normalized in _normalize(c) for c in candidates):
-                return district
+        candidates = [
+            (district, [district.name, district.id, *district.aliases])
+            for district in self.ruleset.districts
+        ]
+        match = best_match(text, candidates)
+        if match is not None:
+            self.last_district_confidence = match.confidence
+            return match.entry
+        self.last_district_confidence = None
         return self._resolve_via_ai_district(text)
 
     def resolve_estate(self, text: str, district_id: str | None = None) -> Estate | None:
-        normalized = _normalize(text)
-        candidates_pool = self.ruleset.estates
+        pool = self.ruleset.estates
         if district_id:
-            candidates_pool = [e for e in candidates_pool if e.district_id == district_id]
-        for estate in candidates_pool:
-            candidates = [estate.name, estate.id, *estate.aliases]
-            if any(_normalize(c) in normalized or normalized in _normalize(c) for c in candidates):
-                return estate
-        return self._resolve_via_ai_estate(text, candidates_pool)
+            pool = [e for e in pool if e.district_id == district_id]
+        candidates = [(estate, [estate.name, estate.id, *estate.aliases]) for estate in pool]
+        match = best_match(text, candidates)
+        if match is not None:
+            self.last_estate_confidence = match.confidence
+            return match.entry
+        self.last_estate_confidence = None
+        return self._resolve_via_ai_estate(text, pool)
 
     def _resolve_via_ai_district(self, text: str) -> District | None:
         if not self._ai_provider or not self.ruleset.districts:
@@ -119,6 +131,10 @@ class RuleEngine:
             return None
         for district in self.ruleset.districts:
             if _normalize(district.name) == _normalize(response.text):
+                # AI resolution is reported at a fixed, moderate confidence -
+                # it is a fallback of last resort and should never be
+                # mistaken for a confirmed exact/fuzzy rule match downstream.
+                self.last_district_confidence = 0.6
                 return district
         return None
 
@@ -136,6 +152,7 @@ class RuleEngine:
             return None
         for estate in pool:
             if _normalize(estate.name) == _normalize(response.text):
+                self.last_estate_confidence = 0.6
                 return estate
         return None
 
