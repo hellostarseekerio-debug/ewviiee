@@ -129,6 +129,7 @@ No other file changes are required — the Workflow Manager screen and the
 
 - [Installation Guide](docs/INSTALLATION.md)
 - [Production Deployment Guide](docs/DEPLOYMENT.md) (Docker Compose + PostgreSQL, or bare metal)
+- [Render Deployment Guide](docs/RENDER_DEPLOYMENT.md) (`render.yaml` Blueprint, managed PostgreSQL)
 - [Architecture](docs/architecture.md)
 - [Developer Guide](docs/developer_guide.md)
 - [Administrator Guide](docs/admin_guide.md)

@@ -1,0 +1,130 @@
+# Render Blueprint for the Office Automation Platform API.
+#
+# This deploys the SAME Docker image used for on-prem/self-hosted Docker
+# Compose deployment (Dockerfile at the repo root, unmodified) as a Render
+# Web Service, backed by a Render-managed PostgreSQL instance. No
+# application code changes were needed - only this file plus the standard
+# OAP_* environment variables the app already reads (see .env.example).
+#
+# Usage: in the Render dashboard, "New +" -> "Blueprint", point it at this
+# repository. Render will read this file and propose the resources below.
+# Review docs/RENDER_DEPLOYMENT.md before clicking "Apply" - several
+# values (marked "sync: false" below) must be filled in by hand first.
+#
+# What this does NOT do: it does not run `docker compose` - Render's own
+# Docker runtime builds Dockerfile directly and manages the container
+# lifecycle, health checks, and TLS termination itself. docker-compose.yml
+# remains the correct file for self-hosted deployments; this file is
+# Render-specific and the two are independent of each other.
+
+databases:
+  - name: oap-postgres
+    databaseName: office_automation
+    user: oap
+    plan: starter
+    region: oregon
+    # Render's default Postgres access is already "internal only" for
+    # services in the same region/project unless you add IP allow rules -
+    # leave this empty so the database is not reachable from the public
+    # internet at all, matching docker-compose.yml's `db` service (which
+    # has no `ports:` mapping either).
+    ipAllowList: []
+
+services:
+  - type: web
+    name: oap-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    # Render pings this path on the port the container EXPOSEs (8000, per
+    # the Dockerfile) to decide whether a deploy is healthy and whether to
+    # keep routing traffic to an existing instance during a new deploy.
+    healthCheckPath: /health
+    autoDeploy: true
+    # Persistent disk for documents, exports, archives, logs, and local
+    # backups - Render's container filesystem is otherwise ephemeral and
+    # is wiped on every deploy/restart. Mounted at /app/data to match
+    # every OAP_*_ROOT / OAP_BACKUP_DIR / OAP_SQLITE_PATH default, which
+    # is already a relative "./data/..." path resolved against the
+    # container's /app working directory - so no path env vars need to be
+    # overridden here, exactly as in docker-compose.yml's bind mount.
+    disk:
+      name: oap-data
+      mountPath: /app/data
+      sizeGB: 5
+    envVars:
+      - key: OAP_ENVIRONMENT
+        value: production
+
+      # --- Database: points at the managed Postgres instance above ----
+      - key: OAP_DATABASE_BACKEND
+        value: postgresql
+      - key: OAP_POSTGRES_DSN
+        fromDatabase:
+          name: oap-postgres
+          property: connectionString
+
+      # --- Network: Render's edge proxy is the only way to reach this
+      # service (there is no way to bind the container's port directly to
+      # the internet on Render), so the app must trust its
+      # X-Forwarded-For/X-Forwarded-Proto the same way it would trust an
+      # operator-run nginx/Caddy in front of docker-compose.yml.
+      - key: OAP_API_HOST
+        value: 0.0.0.0
+      - key: OAP_API_PORT
+        value: "8000"
+      - key: OAP_TRUST_PROXY_HEADERS
+        value: "true"
+      - key: OAP_TRUSTED_PROXY_HOSTS
+        value: "*"
+
+      # --- Secrets: Render generates a cryptographically random value for
+      # OAP_SECRET_KEY automatically (satisfies the >=32 char production
+      # check). OAP_ENCRYPTION_KEY MUST be a valid Fernet key, which
+      # Render's generator does not produce in the right format, so it is
+      # left blank here ("sync: false") for you to generate and paste in
+      # the dashboard before the first deploy - see
+      # docs/RENDER_DEPLOYMENT.md step 4.
+      - key: OAP_SECRET_KEY
+        generateValue: true
+      - key: OAP_ENCRYPTION_KEY
+        sync: false
+
+      # --- CORS: must be the exact HTTPS origin your browser client is
+      # served from. Update this after your first deploy if Render assigns
+      # a different onrender.com subdomain than expected (name collision),
+      # or once you put a custom domain in front - see
+      # docs/RENDER_DEPLOYMENT.md step 4.
+      - key: OAP_CORS_ALLOWED_ORIGINS
+        value: '["https://oap-api.onrender.com"]'
+
+      # --- Rate limiting: production-safe defaults, unchanged from
+      # .env.example.
+      - key: OAP_RATE_LIMIT_LOGIN
+        value: 5/minute
+      - key: OAP_RATE_LIMIT_DEFAULT
+        value: 120/minute
+
+      # --- AI provider: stays local-only (no data leaves the service)
+      # until an administrator deliberately opts in via Settings - see
+      # docs/PRIVACY.md. Leave the API key fields blank unless that
+      # decision has been made.
+      - key: OAP_AI_PROVIDER
+        value: local
+      - key: OAP_OPENAI_API_KEY
+        sync: false
+      - key: OAP_ANTHROPIC_API_KEY
+        sync: false
+      - key: OAP_AZURE_OPENAI_API_KEY
+        sync: false
+
+      # --- File upload safety: unchanged from .env.example defaults.
+      - key: OAP_MAX_UPLOAD_SIZE_BYTES
+        value: "26214400"
+
+      # --- Backups: kept on the persistent disk above; see
+      # docs/RENDER_DEPLOYMENT.md step 9 for how to get copies off-service.
+      - key: OAP_BACKUP_RETENTION_DAYS
+        value: "90"
