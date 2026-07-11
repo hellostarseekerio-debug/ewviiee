@@ -115,7 +115,17 @@ class Settings(BaseSettings):
         if self.database_backend == DatabaseBackend.POSTGRESQL:
             if not self.postgres_dsn:
                 raise ValueError("postgres_dsn must be set when database_backend=postgresql")
-            return self.postgres_dsn
+            dsn = self.postgres_dsn
+            # Some managed-Postgres providers (Render, Heroku-style DSNs)
+            # hand out connection strings using the legacy "postgres://"
+            # scheme. SQLAlchemy 1.4+ dropped the "postgres" dialect alias,
+            # so create_engine() raises NoSuchModuleError on that scheme -
+            # normalize it here so the DSN works unmodified regardless of
+            # which provider generated it, rather than requiring every
+            # caller (build_engine, alembic/env.py) to remember to do so.
+            if dsn.startswith("postgres://"):
+                dsn = "postgresql://" + dsn[len("postgres://") :]
+            return dsn
         self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{self.sqlite_path}"
 
