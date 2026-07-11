@@ -1,0 +1,79 @@
+# Office Automation Platform - Docker Compose deployment.
+#
+# Two services: the API (this repository's Dockerfile) and a PostgreSQL
+# database. There is no reverse proxy / TLS termination service here by
+# design - see docs/DEPLOYMENT.md "HTTPS setup" for running nginx/Caddy
+# and Let's Encrypt on the host in front of the port this publishes.
+#
+# Usage:
+#   cp .env.docker.example .env      # then edit it - see docs/DEPLOYMENT.md
+#   docker compose build
+#   docker compose up -d
+#   docker compose logs -f api
+#
+# The `api` service's entrypoint (docker/entrypoint.sh) waits for the
+# database and runs `alembic upgrade head` automatically on every start,
+# so there is no separate "migrate" step to remember.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env - see .env.docker.example}
+      POSTGRES_DB: ${POSTGRES_DB:-office_automation}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oap} -d ${POSTGRES_DB:-office_automation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - oap_internal
+    # No `ports:` mapping - the database is reachable only from the `api`
+    # service on the internal network, never from the host or internet.
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # These three deliberately override whatever OAP_DATABASE_BACKEND /
+      # OAP_POSTGRES_DSN / OAP_API_HOST are set to in .env: inside Compose,
+      # the database is always PostgreSQL reachable at the `db` service
+      # name, and the API must bind to all interfaces for Docker's port
+      # publishing to reach it (a 127.0.0.1-only bind inside the container
+      # would be unreachable from outside the container network entirely,
+      # not just from the internet).
+      OAP_DATABASE_BACKEND: postgresql
+      OAP_POSTGRES_DSN: postgresql+psycopg2://${POSTGRES_USER:-oap}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-office_automation}
+      OAP_API_HOST: 0.0.0.0
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Published to the host's loopback only - put a TLS-terminating
+      # reverse proxy in front (docs/DEPLOYMENT.md) rather than exposing
+      # this directly to the internet. Change to "8000:8000" only if you
+      # understand the consequences (no TLS, no proxy-level protections).
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Documents, exports, archives, logs and local backups - bind-mounted
+      # (not a named volume) so they are plain files on the host an
+      # administrator can back up/inspect directly.
+      - ./data:/app/data
+    networks:
+      - oap_internal
+
+volumes:
+  postgres_data:
+
+networks:
+  oap_internal:
+    driver: bridge

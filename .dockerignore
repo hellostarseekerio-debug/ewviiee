@@ -1,0 +1,38 @@
+# Version control / CI
+.git
+.github
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data - never bake into the image, always a mounted volume
+data/
+
+# Desktop-only packaging - irrelevant to the server image
+packaging/
+build/
+dist/
+
+# Local env files - secrets must be supplied at runtime, never baked in
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Docs / sample data - not needed inside the running container
+docs/
+sample_data/
+
+# Tests - not needed inside the running container (CI runs them outside Docker)
+tests/
+.pytest_cache/

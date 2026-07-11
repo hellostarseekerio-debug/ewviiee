@@ -1,0 +1,59 @@
+# Server (API-only) dependencies for the Docker/production deployment.
+#
+# This deliberately excludes PySide6 and the other desktop-GUI-only
+# dependencies in requirements.txt - the API container never renders a
+# desktop UI, and PySide6 alone drags in a full Qt/X11 dependency chain
+# that has no purpose in a headless server image (larger image, longer
+# builds, more CVE surface to track for no benefit).
+#
+# Keep version pins in sync with requirements.txt for anything both files
+# list - they must stay compatible since both install into the same
+# codebase.
+
+# Core backend
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.4
+pydantic-settings==2.3.4
+sqlalchemy==2.0.31
+alembic==1.13.2
+
+# PDF / Image processing
+pypdf==4.2.0
+pikepdf==8.15.1
+reportlab==4.2.0
+Pillow==10.3.0
+
+# OCR (optional heavy deps - uncomment if the container needs to run OCR
+# directly rather than via a separate worker; see docs/DEPLOYMENT.md)
+# paddleocr==2.7.3
+# paddlepaddle==2.6.1
+# pytesseract==0.3.10
+
+# AI providers (uncomment the one(s) your office has configured)
+# openai==1.30.5
+# anthropic==0.28.0
+
+# Config / rules
+PyYAML==6.0.1
+
+# Security
+cryptography==42.0.8
+passlib[bcrypt]==1.7.4
+# passlib 1.7.4's bcrypt backend detection breaks on bcrypt>=4.1 (removed
+# the `__about__` module passlib probes for the version string) - pin to a
+# known-compatible release.
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+slowapi==0.1.9
+pyotp==2.9.0
+
+# Utilities
+structlog==24.1.0
+tenacity==8.3.0
+httpx==0.27.0
+python-dotenv==1.0.1
+python-multipart==0.0.9
+
+# Database driver - the Docker deployment uses PostgreSQL by default.
+psycopg2-binary==2.9.9

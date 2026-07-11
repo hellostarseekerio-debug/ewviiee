@@ -82,15 +82,22 @@ overwriting anything.
 
 ## Backups
 
-Run `python scripts/backup_db.py` on a schedule (daily is recommended) -
-it backs up the SQLite file plus `data/archive/` and `data/export/` into a
-single timestamped `.tar.gz` under `Settings.backup_dir`, and prunes
-backups older than `backup_retention_days` (default 90). For PostgreSQL,
-also run `pg_dump` on the same schedule (the script only reminds you to,
-since a live Postgres database can't be safely file-copied).
+**Bare-metal (SQLite) deployment**: run `python scripts/backup_db.py` on a
+schedule (daily is recommended) - it backs up the SQLite file plus
+`data/archive/` and `data/export/` into a single timestamped `.tar.gz`
+under `Settings.backup_dir`, and prunes backups older than
+`backup_retention_days` (default 90). Restore with
+`python scripts/restore_db.py <backup_file>`.
 
-**Restoring**: see `docs/TROUBLESHOOTING.md` "Backups" section for the
-exact restore commands.
+**Docker Compose (PostgreSQL) deployment**: run
+`bash scripts/docker_backup_postgres.sh` on a schedule instead - it runs
+`pg_dump` inside the `db` container and archives `data/archive`/`export`/`import`
+on the host. Restore with `bash scripts/docker_restore_postgres.sh <dump> <files-archive>`.
+See `docs/DEPLOYMENT.md` §4.5 for the full walkthrough.
+
+Both restore scripts always take a fresh safety backup of the current
+state before overwriting anything, and prompt for confirmation unless
+`--yes` is passed.
 
 ## Logs and audit trail
 

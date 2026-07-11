@@ -76,6 +76,19 @@ python -m app.gui.main
 
 Full walkthrough: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
+### Or: Docker Compose (API + PostgreSQL, for a server deployment)
+
+```bash
+cp .env.docker.example .env
+# Edit .env: set POSTGRES_PASSWORD, OAP_SECRET_KEY, OAP_ENCRYPTION_KEY, OAP_CORS_ALLOWED_ORIGINS
+
+docker compose build
+docker compose up -d
+docker compose exec api python scripts/create_admin.py --username admin --full-name "Jane Doe"
+```
+
+Full walkthrough (server requirements, HTTPS, backups): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ### Optional heavy dependencies
 
 OCR and cloud AI SDKs are optional extras so the core install stays light:
@@ -115,6 +128,7 @@ No other file changes are required — the Workflow Manager screen and the
 ## Documentation
 
 - [Installation Guide](docs/INSTALLATION.md)
+- [Production Deployment Guide](docs/DEPLOYMENT.md) (Docker Compose + PostgreSQL, or bare metal)
 - [Architecture](docs/architecture.md)
 - [Developer Guide](docs/developer_guide.md)
 - [Administrator Guide](docs/admin_guide.md)

@@ -86,13 +86,17 @@ from (protocol + host + port). Wildcard `*` is rejected in production.
 
 ## Backups
 
-**Restoring from a backup**
+**Restoring from a backup (bare-metal / SQLite)**
 ```bash
-tar -xzf data/backups/backup_<timestamp>.tar.gz -C /tmp/restore
-# Stop the API/GUI, then:
-cp /tmp/restore/office_automation.db data/office_automation.db
-cp -r /tmp/restore/archive/* data/archive/
-cp -r /tmp/restore/export/* data/export/
+python scripts/restore_db.py data/backups/backup_<timestamp>.tar.gz
 ```
-Then restart the application. For PostgreSQL, restore via `pg_restore`
-instead of copying a file.
+Takes a safety backup of the current state first, prompts for
+confirmation (add `--yes` to skip it), then restores the database and
+`data/archive`/`data/export`. Restart the API/GUI afterward.
+
+**Restoring from a backup (Docker Compose / PostgreSQL)**
+```bash
+bash scripts/docker_restore_postgres.sh data/backups/postgres_<timestamp>.dump data/backups/files_<timestamp>.tar.gz
+```
+Same safety-backup-first behavior. See `docs/DEPLOYMENT.md` §4.5 for the
+full walkthrough.
