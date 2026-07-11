@@ -91,7 +91,23 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+def _wrap_for_proxy(asgi_app: FastAPI, settings) -> FastAPI:
+    """When behind a reverse proxy, every request otherwise appears to
+    slowapi's `get_remote_address` (and to anything else that reads
+    `request.client.host`) to come from the proxy's own address - turning
+    per-IP rate limiting into one shared bucket for every user, since they
+    would all appear to share a single "IP". `ProxyHeadersMiddleware`
+    rewrites the ASGI scope's client address from X-Forwarded-For before
+    Starlette/FastAPI ever see the request, so this must wrap the
+    outermost app, not be added via `app.add_middleware`."""
+    if not settings.trust_proxy_headers:
+        return asgi_app
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    return ProxyHeadersMiddleware(asgi_app, trusted_hosts=settings.trusted_proxy_hosts)
+
+
+app = _wrap_for_proxy(create_app(), get_settings())
 
 
 def run() -> None:

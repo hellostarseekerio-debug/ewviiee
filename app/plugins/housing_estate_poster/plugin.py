@@ -74,6 +74,23 @@ class HousingEstatePosterPlugin(BasePlugin):
     def stage_import(self, context: WorkflowContext) -> None:
         if not context.document_path.exists():
             raise WorkflowStageError(f"Source document not found: {context.document_path}")
+
+        # The network upload endpoint (POST /api/documents/upload) enforces
+        # OAP_MAX_UPLOAD_SIZE_BYTES, but a file can also arrive here having
+        # simply been placed in local_import_root directly (GUI drag & drop
+        # of an arbitrary local file, or a Dropbox/OneDrive/Google Drive
+        # sync) - bypassing that check entirely. Enforce the same limit
+        # here so an oversized file can't exhaust memory/CPU during
+        # OCR/PDF processing regardless of how it arrived.
+        max_bytes = self.settings.max_upload_size_bytes if self.settings else None
+        if max_bytes:
+            size = context.document_path.stat().st_size
+            if size > max_bytes:
+                raise WorkflowStageError(
+                    f"File is {size / (1024 * 1024):.1f} MB, exceeding the "
+                    f"{max_bytes / (1024 * 1024):.0f} MB processing limit"
+                )
+
         context.fields["source"] = "dropbox"
         context.fields["source_filename"] = context.document_path.name
 

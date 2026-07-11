@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
@@ -15,8 +16,28 @@ import structlog
 
 from app.core.config import get_settings
 
+# A long-running production deployment (this is meant to run for years -
+# see docs/architecture.md) writing an unbounded application.log will
+# eventually fill the disk. 10 x 20MB rotated files caps this at ~200MB
+# while comfortably covering weeks of a single office's activity.
+_LOG_MAX_BYTES = 20 * 1024 * 1024
+_LOG_BACKUP_COUNT = 10
+
+
+_configured = False
+
 
 def configure_logging() -> None:
+    global _configured
+    if _configured:
+        # Idempotent: nothing currently calls this more than once per
+        # process, but any caller that did (a script importing both
+        # app.api.main and app.gui.main, a future worker process, a
+        # test harness) would otherwise accumulate one more file handler
+        # per call - every log line duplicated once per accumulated
+        # handler, and one more open file descriptor held open forever.
+        return
+
     settings = get_settings()
     log_dir = settings.data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -26,8 +47,14 @@ def configure_logging() -> None:
         stream=sys.stdout,
         level=logging.INFO,
     )
-    file_handler = logging.FileHandler(log_dir / "application.log", encoding="utf-8")
+    file_handler = RotatingFileHandler(
+        log_dir / "application.log",
+        maxBytes=_LOG_MAX_BYTES,
+        backupCount=_LOG_BACKUP_COUNT,
+        encoding="utf-8",
+    )
     logging.getLogger().addHandler(file_handler)
+    _configured = True
 
     structlog.configure(
         processors=[

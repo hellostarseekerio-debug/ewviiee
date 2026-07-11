@@ -18,7 +18,16 @@ def build_engine(database_url: str | None = None):
     settings = get_settings()
     url = database_url or settings.database_url
     connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, connect_args=connect_args, future=True)
+    # pool_pre_ping issues a cheap "is this connection still alive" check
+    # before handing a pooled connection to a request; without it, a
+    # connection dropped by PostgreSQL (idle timeout, a DB restart/
+    # failover, a NAT/firewall between the app and a managed DB) surfaces
+    # as an OperationalError on whatever request happens to draw it next,
+    # rather than transparently reconnecting. pool_recycle proactively
+    # retires connections older than 30 minutes for the same reason.
+    # Neither applies to SQLite (no server-side connection to go stale).
+    pool_kwargs = {} if url.startswith("sqlite") else {"pool_pre_ping": True, "pool_recycle": 1800}
+    return create_engine(url, connect_args=connect_args, future=True, **pool_kwargs)
 
 
 _engine = None

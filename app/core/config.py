@@ -75,6 +75,19 @@ class Settings(BaseSettings):
     rate_limit_login: str = "5/minute"
     rate_limit_default: str = "120/minute"
 
+    # Set to true only when a reverse proxy (nginx/Caddy) sits directly in
+    # front of this app and is the sole way to reach it - otherwise the
+    # per-IP rate limiter and account-lockout-adjacent logging would see
+    # every request as coming from the proxy's address, making rate
+    # limiting a single shared bucket for every user instead of per-client.
+    # trusted_proxy_hosts is an exact-match list (or "*" to trust any
+    # directly-connecting peer) of addresses allowed to set
+    # X-Forwarded-For/X-Forwarded-Proto - "*" is appropriate for the
+    # Docker Compose deployment, where the API is already unreachable
+    # except via the loopback-published port (see docs/DEPLOYMENT.md).
+    trust_proxy_headers: bool = False
+    trusted_proxy_hosts: str = "127.0.0.1"
+
     # File upload safety
     max_upload_size_bytes: int = 25 * 1024 * 1024  # 25 MB
     allowed_upload_extensions: list[str] = Field(

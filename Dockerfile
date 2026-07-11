@@ -68,7 +68,11 @@ USER oap
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# start-period is generous (60s) because the entrypoint (docker/entrypoint.sh)
+# waits for PostgreSQL and runs `alembic upgrade head` before the process
+# even starts listening - a slow first boot (cold DB, larger migration)
+# must not be misreported as "unhealthy" while it's still legitimately starting.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"
 
 # Runs via app.api.main:run(), which reads host/port/reload from Settings

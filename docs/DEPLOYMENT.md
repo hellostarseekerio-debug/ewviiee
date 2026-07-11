@@ -182,6 +182,18 @@ The API container/process never terminates TLS itself - `OAP_API_HOST`
 and the Compose `ports:` mapping both keep it reachable only from
 `127.0.0.1` on the host. Put a reverse proxy in front for real traffic.
 
+**Whenever a reverse proxy is in front, also set `OAP_TRUST_PROXY_HEADERS=true`**
+(already the default in `.env.docker.example`). Without it, every request
+appears to the app to come from the proxy's own address - turning per-IP
+rate limiting (login attempts, uploads) into one shared bucket for every
+user in the office, since they'd all appear to share a single "IP".
+`OAP_TRUSTED_PROXY_HOSTS` controls which directly-connecting peers are
+allowed to set `X-Forwarded-For` (default `127.0.0.1`; the Docker Compose
+template uses `*`, safe there specifically because the published port
+isn't reachable except from the same host - see the comment in
+`.env.docker.example`). Both nginx configs below already send the
+required `X-Forwarded-For`/`X-Real-IP` headers.
+
 ### Option A: nginx + Let's Encrypt (Certbot), on the host
 
 ```bash
@@ -330,12 +342,22 @@ migration.
   (visible in `docker compose ps`).
 - Application logs: `data/logs/application.log` (structured JSON lines),
   or `docker compose logs -f api` for the Docker deployment (structlog
-  prints to stdout too, which Docker captures automatically).
+  prints to stdout too, which Docker captures automatically). The file is
+  rotated automatically at 20MB, keeping 10 backups (~200MB max), so it
+  will not silently fill the disk on a long-running deployment - it does
+  not need a `logrotate` entry of its own.
 - The `audit_logs` table is the authoritative record of security-relevant
   events (logins, permission denials, uploads, workflow runs, approvals,
   settings changes) - consider a periodic export
   (`app.core.logging_config.export_logs`) to your office's log retention
   system if one exists.
+- PostgreSQL connections are validated with a lightweight liveness check
+  before each use and recycled every 30 minutes, so a dropped connection
+  (DB restart, failover, an idle timeout from a firewall/NAT between the
+  app and a managed database) is transparently replaced instead of
+  surfacing as a 500 error on whatever request draws it next. No action
+  needed - this is automatic for the `postgresql` backend and does not
+  apply to SQLite.
 
 ## 9. What this deployment model deliberately does not include
 
