@@ -39,19 +39,25 @@ minutes, so a leaked pending token is far less useful than a real one.
 # annotations as live objects (no future import) sidesteps the whole
 # eval/globals mismatch, regardless of decorator wrapping.
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_role
+from app.api.deps import get_current_user, require_role
 from app.api.rate_limit import limiter
 from app.api.schemas import (
+    AdminPasswordResetRequest,
+    ChangePasswordRequest,
     MFAConfirmRequest,
     MFADisableRequest,
     MFASetupResponse,
     MFAVerifyRequest,
     TokenResponse,
     UserCreateRequest,
+    UserOut,
+    UserUpdateRequest,
 )
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -355,3 +361,141 @@ def admin_create_user(
         detail={"created_username": user.username, "role": user.role.value},
     )
     return {"id": user.id, "username": user.username, "role": user.role.value}
+
+
+@router.get("/me", response_model=UserOut)
+def read_current_user(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.post("/change-password")
+@limiter.limit(lambda: get_settings().rate_limit_login)
+def change_own_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Self-service password change - distinct from the admin reset-password
+    endpoint, which doesn't require knowing the current password. Rate
+    limited the same as login, since it's another endpoint an attacker with
+    a stolen session token could otherwise use to brute-force the current
+    password with unlimited attempts."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        register_failed_login(current_user)
+        db.commit()
+        record_audit(actor=current_user.username, action="password_change_failed", success=False)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Current password is incorrect")
+
+    try:
+        validate_password_policy(payload.new_password)
+    except WeakPasswordError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    current_user.password_changed_at = datetime.utcnow()
+    register_successful_login(current_user)
+    db.commit()
+    record_audit(actor=current_user.username, action="password_changed")
+    return {"detail": "Password changed successfully"}
+
+
+@router.get("/admin/users", response_model=list[UserOut])
+def admin_list_users(
+    db: Session = Depends(get_db), _current_user: User = Depends(require_role(UserRole.ADMIN))
+):
+    return db.query(User).order_by(User.created_at).all()
+
+
+@router.patch("/admin/users/{username}", response_model=UserOut)
+def admin_update_user(
+    username: str,
+    payload: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Edit full_name/role/is_active for an existing user. An admin cannot
+    deactivate or demote their own account through this endpoint - that
+    would risk locking every admin out of the office at once if done by
+    mistake; use a second admin account for that."""
+    target = db.query(User).filter(User.username == username).first()
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+    if target.username == current_user.username and (
+        payload.is_active is False or (payload.role is not None and payload.role != UserRole.ADMIN.value)
+    ):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "You cannot deactivate or demote your own account. Ask another administrator.",
+        )
+
+    changes = {}
+    if payload.full_name is not None:
+        target.full_name = payload.full_name
+        changes["full_name"] = payload.full_name
+    if payload.role is not None:
+        target.role = UserRole(payload.role)
+        changes["role"] = payload.role
+    if payload.is_active is not None:
+        target.is_active = payload.is_active
+        changes["is_active"] = payload.is_active
+
+    db.commit()
+    record_audit(
+        actor=current_user.username, action="user_updated", resource_type="user",
+        resource_id=target.id, detail=changes,
+    )
+    return target
+
+
+@router.delete("/admin/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_deactivate_user(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Deactivates (never hard-deletes) a user - the account and every
+    audit log entry it authored must remain for the office's audit trail;
+    a deactivated user simply can no longer log in."""
+    if username == current_user.username:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot deactivate your own account.")
+
+    target = db.query(User).filter(User.username == username).first()
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+    target.is_active = False
+    db.commit()
+    record_audit(
+        actor=current_user.username, action="user_deactivated",
+        resource_type="user", resource_id=target.id,
+    )
+
+
+@router.post("/admin/users/{username}/reset-password")
+def admin_reset_password(
+    username: str,
+    payload: AdminPasswordResetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    try:
+        validate_password_policy(payload.new_password)
+    except WeakPasswordError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    target = db.query(User).filter(User.username == username).first()
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+
+    target.hashed_password = hash_password(payload.new_password)
+    target.password_changed_at = datetime.utcnow()
+    target.failed_login_attempts = 0
+    target.locked_until = None
+    db.commit()
+    record_audit(
+        actor=current_user.username, action="admin_password_reset",
+        resource_type="user", resource_id=target.id,
+    )
+    return {"detail": "Password reset successfully"}

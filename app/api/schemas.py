@@ -98,6 +98,11 @@ class MFADisableRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class MFAVerifyRequest(BaseModel):
     pending_token: str
     code: str
@@ -128,3 +133,38 @@ class RollbackRequest(BaseModel):
 class SystemSettingUpdateRequest(BaseModel):
     key: str
     value: str
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    full_name: str | None
+    role: str
+    is_active: bool
+    mfa_enabled: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class UserUpdateRequest(BaseModel):
+    full_name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class AdminPasswordResetRequest(BaseModel):
+    new_password: str
+
+
+class DashboardStats(BaseModel):
+    total_documents: int
+    documents_by_status: dict[str, int]
+    documents_by_approval_status: dict[str, int]
+    total_users: int
+    active_users: int
+    ai_usage_total: int
+    ai_usage_cloud: int
+    ai_usage_local: int
+    recent_activity: list[dict]

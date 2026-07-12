@@ -46,6 +46,7 @@ tests/
 sample_data/   generated sample poster + application PDF for demos
 docs/          installation, architecture, developer/admin guides, user manual, API docs, security, privacy
 scripts/       sample data generator, admin bootstrap, DB backup, Windows/macOS build scripts
+frontend/      Next.js enterprise web UI for the API (separate deploy - see frontend/README.md)
 ```
 
 ## Quick start

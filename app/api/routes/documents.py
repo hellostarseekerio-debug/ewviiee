@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
@@ -34,9 +35,11 @@ from app.core.file_safety import (
     assert_extension_allowed,
     assert_size_within_limit,
     generate_storage_filename,
+    resolve_within_root,
 )
 from app.core.logging_config import record_audit
 from app.core.models import ApprovalStatus, Document, DocumentVersion, UserRole
+from app.workflow.runner import allowed_import_roots
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -99,6 +102,32 @@ def list_documents(
         .limit(limit)
         .all()
     )
+
+
+@router.get("/{document_id}/download")
+def download_document(document_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Serves the document's current generated output (falling back to its
+    original source file if no output has been generated yet). The stored
+    path is server-controlled (never client-supplied), but is still
+    re-verified against the same allowed-roots guard used everywhere else
+    a path reaches the filesystem, as defense in depth."""
+    document = db.get(Document, document_id)
+    if document is None or document.is_deleted:
+        raise HTTPException(404, "Document not found")
+
+    candidate = document.output_path or document.archive_path or document.source_path
+    try:
+        safe_path = resolve_within_root(Path(candidate), allowed_import_roots(get_settings()))
+    except UnsafeFileError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Document file is not available") from exc
+    if not safe_path.is_file():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Document file is missing on disk")
+
+    record_audit(
+        actor=current_user.username, action="document_downloaded",
+        resource_type="document", resource_id=document_id,
+    )
+    return FileResponse(safe_path, filename=document.filename, media_type="application/octet-stream")
 
 
 @router.get("/{document_id}/versions", response_model=list[DocumentVersionOut])

@@ -11,7 +11,15 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.rate_limit import limiter
-from app.api.routes import auth, documents, plugins, search, settings as settings_routes, workflows
+from app.api.routes import (
+    auth,
+    dashboard,
+    documents,
+    plugins,
+    search,
+    settings as settings_routes,
+    workflows,
+)
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.logging_config import configure_logging, get_logger
@@ -104,6 +112,7 @@ def create_app() -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(plugins.router)
     app.include_router(settings_routes.router)
+    app.include_router(dashboard.router)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
