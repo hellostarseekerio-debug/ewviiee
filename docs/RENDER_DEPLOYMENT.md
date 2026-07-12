@@ -176,8 +176,10 @@ environment variables already set.
 ## 8. Creating the first administrator account
 
 There is no open "create user" API endpoint (by design - see
-`scripts/create_admin.py`'s docstring). After the first successful
-deploy, open the **Shell** tab on `oap-api` and run:
+`scripts/create_admin.py`'s docstring).
+
+**If your plan includes Shell** (Starter and above), open the **Shell**
+tab on `oap-api` and run:
 
 ```bash
 python scripts/create_admin.py --username admin --full-name "Your Name"
@@ -185,6 +187,40 @@ python scripts/create_admin.py --username admin --full-name "Your Name"
 
 You'll be prompted for a password (12+ characters, upper/lower/digit/
 special character - the same policy enforced everywhere else in the app).
+
+**If you're on the Free plan** (no Shell/SSH access), use the
+environment-variable bootstrap instead - see `scripts/bootstrap_admin_from_env.py`.
+On the `oap-api` service's **Environment** tab, add:
+
+```
+OAP_BOOTSTRAP_ADMIN_USERNAME=admin
+OAP_BOOTSTRAP_ADMIN_PASSWORD=<a strong password - 12+ chars, upper/lower/digit/special>
+```
+
+Saving these triggers a redeploy. The container's entrypoint runs this
+bootstrap automatically right after migrations, every time it starts: it
+creates that account as admin if it doesn't exist yet, or - if it already
+exists - resets its password, clears any lockout, disables MFA, and forces
+the role back to admin (so this doubles as a "forgot my password" recovery
+path, not just first-time setup). Check the **Logs** tab for a line like:
+
+```
+office-automation-platform: admin account 'admin' created from environment variables.
+office-automation-platform: SECURITY - remove OAP_BOOTSTRAP_ADMIN_USERNAME and OAP_BOOTSTRAP_ADMIN_PASSWORD from this service's environment variables now and redeploy. Leaving them set resets this password on every restart.
+```
+
+Then log in with that username/password.
+
+**Immediately after confirming you can log in, delete both environment
+variables** from the Environment tab and let the service redeploy again.
+This is the whole reason it's described as *temporary*: as long as those
+two variables stay set, every restart (a crash, a manual redeploy, a
+Render platform maintenance restart) silently resets that account's
+password back to the same value - anyone who later learns it (a shared
+screenshot, a support ticket, a misconfigured logging pipeline) could keep
+regaining access indefinitely for as long as the variables remain. It is
+never exposed as an HTTP endpoint and only ever runs inside the container
+at startup, but it is only as safe as how promptly you remove it.
 
 ## 9. Deploying
 

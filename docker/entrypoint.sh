@@ -40,5 +40,12 @@ echo "office-automation-platform: database is reachable."
 echo "office-automation-platform: running migrations (alembic upgrade head)..."
 alembic upgrade head
 
+# No-op unless OAP_BOOTSTRAP_ADMIN_USERNAME/OAP_BOOTSTRAP_ADMIN_PASSWORD are
+# both set - see scripts/bootstrap_admin_from_env.py's docstring. Exists so
+# an admin account can be created/reset on platforms with no Shell access
+# (e.g. Render's free tier) by setting environment variables and
+# redeploying, instead of running scripts/create_admin.py interactively.
+python scripts/bootstrap_admin_from_env.py
+
 echo "office-automation-platform: starting application: $*"
 exec "$@"
