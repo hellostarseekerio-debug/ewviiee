@@ -7,12 +7,14 @@ import { useTheme } from "next-themes";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { navItems } from "./nav-items";
 import { useAuth, hasRole } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/i18n/context";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { user, logout } = useAuth();
   const { setTheme } = useTheme();
+  const { t } = useLanguage();
 
   useEffect(() => {
     function handler(event: KeyboardEvent) {
@@ -41,7 +43,7 @@ export function CommandPalette() {
             .map((item) => (
               <CommandItem key={item.href} onSelect={() => go(item.href)}>
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                {t(item.labelKey)}
               </CommandItem>
             ))}
         </CommandGroup>
@@ -55,7 +57,7 @@ export function CommandPalette() {
         </CommandGroup>
         <CommandGroup heading="Account">
           <CommandItem onSelect={() => { setOpen(false); logout(); }}>
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut className="h-4 w-4" /> {t("topbar.signOut")}
           </CommandItem>
         </CommandGroup>
       </CommandList>

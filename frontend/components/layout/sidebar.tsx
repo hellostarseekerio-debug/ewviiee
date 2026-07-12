@@ -6,10 +6,12 @@ import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
 import { useAuth, hasRole } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/i18n/context";
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -37,7 +39,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}

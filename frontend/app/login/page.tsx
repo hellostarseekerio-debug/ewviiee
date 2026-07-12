@@ -2,19 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ShieldCheck } from "lucide-react";
+import { Building2, ShieldCheck, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage, localeLabels, type Locale } from "@/lib/i18n/context";
 import { ApiError } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Step = "credentials" | "mfa";
 
+const LOCALES: Locale[] = ["en", "zh-HK", "zh-CN"];
+
 export default function LoginPage() {
   const { login, verifyMfa } = useAuth();
+  const { locale, setLocale, t } = useLanguage();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("credentials");
@@ -68,24 +78,38 @@ export default function LoginPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Building2 className="h-6 w-6" />
           </div>
-          <h1 className="text-lg font-semibold">Office Automation Platform</h1>
-          <p className="text-sm text-muted-foreground">Sign in to continue</p>
+          <h1 className="text-lg font-semibold">{t("login.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("login.subtitle")}</p>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>{step === "credentials" ? "Sign in" : "Two-factor verification"}</CardTitle>
-            <CardDescription>
-              {step === "credentials"
-                ? "Enter your office credentials."
-                : "Enter the 6-digit code from your authenticator app, or a recovery code."}
-            </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle>{step === "credentials" ? t("login.signInHeading") : t("login.mfaHeading")}</CardTitle>
+              <CardDescription>
+                {step === "credentials" ? t("login.signInDescription") : t("login.mfaDescription")}
+              </CardDescription>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label={t("topbar.language")} className="shrink-0">
+                  <Globe className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {LOCALES.map((code) => (
+                  <DropdownMenuItem key={code} onClick={() => setLocale(code)} className={locale === code ? "font-medium" : undefined}>
+                    {localeLabels[code]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardHeader>
           <CardContent>
             {step === "credentials" ? (
               <form className="flex flex-col gap-4" onSubmit={handleCredentialsSubmit}>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username">{t("login.username")}</Label>
                   <Input
                     id="username"
                     autoComplete="username"
@@ -96,7 +120,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t("login.password")}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -108,14 +132,14 @@ export default function LoginPage() {
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button type="submit" loading={submitting} className="mt-1">
-                  Sign in
+                  {t("login.signIn")}
                 </Button>
               </form>
             ) : (
               <form className="flex flex-col gap-4" onSubmit={handleMfaSubmit}>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="code" className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Authentication code
+                    <ShieldCheck className="h-3.5 w-3.5" /> {t("login.authCode")}
                   </Label>
                   <Input
                     id="code"
@@ -129,10 +153,10 @@ export default function LoginPage() {
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button type="submit" loading={submitting}>
-                  Verify
+                  {t("login.verify")}
                 </Button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setStep("credentials")}>
-                  Back to sign in
+                  {t("login.backToSignIn")}
                 </Button>
               </form>
             )}

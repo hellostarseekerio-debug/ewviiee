@@ -8,6 +8,7 @@ import { authApi, settingsApi } from "@/lib/api/endpoints";
 import type { MFASetupResponse, SystemSettings } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/types";
 import { useAuth, hasRole } from "@/lib/auth-context";
+import { useLanguage, localeLabels, type Locale } from "@/lib/i18n/context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -260,8 +261,11 @@ function SecurityTab({ onMfaChange }: { onMfaChange: () => Promise<void> }) {
   );
 }
 
+const LOCALES: Locale[] = ["en", "zh-HK", "zh-CN"];
+
 function PreferencesTab() {
   const { theme, setTheme } = useTheme();
+  const { locale, setLocale, t } = useLanguage();
   const options: Array<{ value: string; label: string; icon: React.ElementType }> = [
     { value: "light", label: "Light", icon: Sun },
     { value: "dark", label: "Dark", icon: Moon },
@@ -269,23 +273,39 @@ function PreferencesTab() {
   ];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Appearance</CardTitle>
-        <CardDescription>Choose how the platform looks on this device.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex gap-2">
-        {options.map((opt) => (
-          <Button
-            key={opt.value}
-            variant={theme === opt.value ? "default" : "outline"}
-            onClick={() => setTheme(opt.value)}
-          >
-            <opt.icon className="h-4 w-4" /> {opt.label}
-          </Button>
-        ))}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Choose how the platform looks on this device.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex gap-2">
+          {options.map((opt) => (
+            <Button
+              key={opt.value}
+              variant={theme === opt.value ? "default" : "outline"}
+              onClick={() => setTheme(opt.value)}
+            >
+              <opt.icon className="h-4 w-4" /> {opt.label}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.language")}</CardTitle>
+          <CardDescription>{t("settings.languageDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {LOCALES.map((code) => (
+            <Button key={code} variant={locale === code ? "default" : "outline"} onClick={() => setLocale(code)}>
+              {localeLabels[code]}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

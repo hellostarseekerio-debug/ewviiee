@@ -9,20 +9,21 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/api/types";
+import type { TranslationKey } from "@/lib/i18n/context";
 
 export interface NavItem {
   href: string;
-  label: string;
+  labelKey: TranslationKey;
   icon: LucideIcon;
   minRole?: UserRole;
 }
 
 export const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/posters", label: "Poster Archive", icon: FolderKanban },
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/ai", label: "AI Insights", icon: Sparkles },
-  { href: "/admin/users", label: "Users", icon: Users, minRole: "admin" },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/documents", labelKey: "nav.documents", icon: FileText },
+  { href: "/posters", labelKey: "nav.posters", icon: FolderKanban },
+  { href: "/search", labelKey: "nav.search", icon: Search },
+  { href: "/ai", labelKey: "nav.ai", icon: Sparkles },
+  { href: "/admin/users", labelKey: "nav.users", icon: Users, minRole: "admin" },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ];

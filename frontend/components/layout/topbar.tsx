@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Menu, Moon, Search, Sun, LogOut, UserRound, Settings as SettingsIcon } from "lucide-react";
+import { Menu, Moon, Search, Sun, LogOut, UserRound, Settings as SettingsIcon, Globe, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -17,11 +17,15 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage, localeLabels, type Locale } from "@/lib/i18n/context";
 import { SidebarNav } from "./sidebar";
+
+const LOCALES: Locale[] = ["en", "zh-HK", "zh-CN"];
 
 export function Topbar() {
   const { user, logout } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
+  const { locale, setLocale, t } = useLanguage();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -49,7 +53,7 @@ export function Topbar() {
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
         >
           <Search className="h-3.5 w-3.5" />
-          Search or jump to...
+          {t("topbar.searchPlaceholder")}
           <kbd className="ml-4 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium">
             &#8984;K
           </kbd>
@@ -57,6 +61,24 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-1.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={t("topbar.language")}>
+              <Globe className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{t("topbar.language")}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {LOCALES.map((code) => (
+              <DropdownMenuItem key={code} onClick={() => setLocale(code)}>
+                {locale === code ? <Check className="h-4 w-4" /> : <span className="w-4" />}
+                {localeLabels[code]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button
           variant="ghost"
           size="icon"
@@ -87,14 +109,14 @@ export function Topbar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <UserRound className="h-4 w-4" /> Profile
+              <UserRound className="h-4 w-4" /> {t("topbar.profile")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <SettingsIcon className="h-4 w-4" /> Settings
+              <SettingsIcon className="h-4 w-4" /> {t("topbar.settings")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onClick={logout}>
-              <LogOut className="h-4 w-4" /> Sign out
+              <LogOut className="h-4 w-4" /> {t("topbar.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
