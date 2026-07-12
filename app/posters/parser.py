@@ -51,6 +51,35 @@ _POSTER_TYPE_KEYWORDS = {
 
 _STOPWORDS = {"", "-", "來往", "来往", "路線", "路线"}
 
+# Zero-width/invisible characters that survive copy-paste from web pages,
+# Notion, Word, etc. (zero-width space, ZWNJ/ZWJ, word joiner, BOM). A
+# "blank" separator line carrying only one of these looks empty to a human
+# but is non-empty to str.strip(), which used to make the block splitter
+# treat it as real content and merge unrelated records together.
+_INVISIBLE_RE = re.compile(r"[​‌‍⁠﻿]")
+
+# The 18 Hong Kong districts' Chinese names, used only to strip a leading
+# "<district> " token off an otherwise-plain title (e.g. "沙田
+# 20260707-..." -> "20260707-..."). Kept independent of the YAML-driven
+# RuleEngine (config/rules/districts.yaml) so title cleanup still works
+# even when no rule engine is wired in, or the paste uses a district name
+# the engine doesn't recognise.
+_HK_DISTRICTS_ZH = [
+    "中西區", "中西区", "灣仔", "湾仔", "東區", "东区", "南區", "南区",
+    "油尖旺", "深水埗", "九龍城", "九龙城", "黃大仙", "黄大仙", "觀塘", "观塘",
+    "葵青", "荃灣", "荃湾", "屯門", "屯门", "元朗", "北區", "北区", "大埔",
+    "沙田", "西貢", "西贡", "離島", "离岛",
+]
+
+# Common suffixes for Hong Kong housing estate / building names, used as a
+# last-resort fallback to find an estate name that isn't in the curated
+# config/rules/estates.yaml list (and no AI provider is configured to fall
+# back to). Deliberately only a suffix heuristic - never treated as more
+# authoritative than a real RuleEngine alias/fuzzy match.
+_ESTATE_SUFFIX_RE = re.compile(
+    r"([一-鿿]{2,8}(?:邨|苑|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾))"
+)
+
 
 @dataclass
 class ParsedPoster:
@@ -91,12 +120,19 @@ def _extract_route(text: str) -> str | None:
     return None
 
 
-def _extract_title(text: str) -> str | None:
+def _extract_title(text: str, district_tokens: list[str] | None = None) -> str | None:
     match = _BRACKET_RE.search(text)
     if match:
         title = (match.group(1) or match.group(2) or "").strip()
         return title or None
     stripped = " ".join(text.split())
+    tokens = sorted({t for t in (district_tokens or []) + _HK_DISTRICTS_ZH if t}, key=len, reverse=True)
+    for token in tokens:
+        if stripped.startswith(token):
+            rest = stripped[len(token):].lstrip(" \t　-–—:：、，,")
+            if rest:
+                stripped = rest
+            break
     return stripped or None
 
 
@@ -119,6 +155,19 @@ def _extract_poster_type(text: str) -> str | None:
     return None
 
 
+def _extract_estate_fallback(text: str) -> str | None:
+    """Regex-only fallback for when RuleEngine's alias/fuzzy match (and its
+    own AI fallback) can't find the estate - most commonly because the
+    estate isn't in config/rules/estates.yaml yet. Picks the left-most
+    (i.e. first-mentioned) CJK run ending in a common estate/building
+    suffix, since posters typically name the poster's own estate before
+    any destination estate mentioned later (e.g. "... 來往 ...")."""
+    match = _ESTATE_SUFFIX_RE.search(text)
+    if match:
+        return match.group(1)
+    return None
+
+
 def _extract_keywords(text: str, already_extracted: list[str]) -> list[str]:
     remainder = _BRACKET_RE.sub(" ", text)
     for token in already_extracted:
@@ -132,30 +181,45 @@ def _extract_keywords(text: str, already_extracted: list[str]) -> list[str]:
     return keywords[:12]
 
 
+def _normalize_line(line: str) -> str:
+    """Strips ordinary whitespace plus invisible unicode characters (zero-
+    width space, BOM, etc.) that commonly survive copy-paste from web
+    pages/rich text editors. Without this, a separator line that *looks*
+    blank but carries one of these characters is non-empty to plain
+    str.strip(), so it gets treated as real content instead of a blank
+    line - the underlying cause of blocks silently merging two or more
+    records together and losing the metadata <-> URL association."""
+    return _INVISIBLE_RE.sub("", line).strip()
+
+
 def split_into_blocks(raw_text: str) -> list[str]:
-    """Splits a large pasted blob into one chunk per record: everything up
-    to and including its Dropbox link. A run of blank lines after a
-    completed record (one containing a link) starts the next one. Text
-    with no Dropbox link anywhere is returned as zero blocks - there is
-    nothing importable in it, which is a normal, non-error outcome."""
+    """Walks the pasted text pairing each Dropbox link with the single
+    closest preceding non-empty line ("Line 1: metadata, Line 2: Dropbox
+    URL, repeat"), rather than accumulating everything since the last
+    completed record. This is deliberately robust to inconsistent spacing,
+    extra blank lines, and invisible/whitespace-only separator lines: any
+    number of blank lines may sit between the metadata line and its URL,
+    and stray text further back is never pulled in - only the nearest
+    preceding line is used. A URL with no preceding line at all (or only
+    blank ones) yields a block with just the URL, which parse_block will
+    later fall back to "(untitled)" for since there is truly nothing else
+    to extract a title from. Text with no Dropbox link anywhere returns no
+    blocks - there is nothing importable in it, a normal, non-error case."""
     if not raw_text or not raw_text.strip():
         return []
 
-    blocks: list[list[str]] = []
-    current: list[str] = []
-    for line in raw_text.splitlines():
-        if not line.strip():
-            if current and any(DROPBOX_URL_RE.search(existing) for existing in current):
-                blocks.append(current)
-                current = []
-            continue
-        current.append(line)
+    blocks: list[str] = []
+    pending_meta: str | None = None
+    for raw_line in raw_text.splitlines():
+        line = _normalize_line(raw_line)
+        if not line:
+            continue  # blank (or invisible-only) separator - keep waiting
         if DROPBOX_URL_RE.search(line):
-            blocks.append(current)
-            current = []
-    if current and any(DROPBOX_URL_RE.search(existing) for existing in current):
-        blocks.append(current)
-    return ["\n".join(block) for block in blocks]
+            blocks.append(f"{pending_meta}\n{line}" if pending_meta else line)
+            pending_meta = None
+        else:
+            pending_meta = line  # closest-preceding-line wins, not accumulate
+    return blocks
 
 
 def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | None:
@@ -193,12 +257,14 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
         parsed.warnings.append("language_detection_failed")
 
     resolved_district_id = None
+    resolved_district_tokens: list[str] = []
     if rule_engine is not None:
         try:
             district = rule_engine.resolve_district(text_only)
             if district is not None:
                 parsed.district = district.name
                 resolved_district_id = district.id
+                resolved_district_tokens = [district.name, district.id, *district.aliases]
         except Exception:
             parsed.warnings.append("district_resolution_failed")
 
@@ -209,8 +275,14 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
         except Exception:
             parsed.warnings.append("estate_resolution_failed")
 
+    if parsed.estate is None:
+        try:
+            parsed.estate = _extract_estate_fallback(text_only)
+        except Exception:
+            parsed.warnings.append("estate_extraction_failed")
+
     try:
-        parsed.poster_title = _extract_title(text_only)
+        parsed.poster_title = _extract_title(text_only, resolved_district_tokens)
     except Exception:
         parsed.warnings.append("title_extraction_failed")
 

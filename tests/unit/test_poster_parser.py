@@ -119,3 +119,154 @@ def test_english_only_text_detected_as_english(rule_engine):
     block = "Kwun Tong bus route notice\nhttps://www.dropbox.com/scl/fo/english-only"
     parsed = parse_block(block, rule_engine)
     assert parsed.language == "en"
+
+
+# ---------------------------------------------------------------------------
+# Real reported example: "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨"
+# followed by a Dropbox link. Covers every field the bug report called out
+# as broken: title, district, estate, route, date, poster type.
+# ---------------------------------------------------------------------------
+
+REAL_EXAMPLE_TEXT = (
+    "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨\n"
+    "https://www.dropbox.com/scl/fi/abc123/poster.pdf?rlkey=xyz&dl=0\n"
+)
+
+
+def test_real_example_extracts_every_field(rule_engine):
+    results = parse_poster_text(REAL_EXAMPLE_TEXT, rule_engine)
+    assert len(results) == 1
+    poster = results[0]
+
+    assert poster.poster_title == "20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨"
+    assert poster.district == "Sha Tin"  # canonical name for 沙田, matching every other district field in the app
+    assert poster.estate == "愉翠苑"
+    assert poster.route_number == "73H"
+    assert poster.document_date.year == 2026
+    assert poster.document_date.month == 7
+    assert poster.document_date.day == 7
+    assert poster.poster_type == "poster"
+    assert poster.dropbox_url.startswith("https://www.dropbox.com/")
+
+
+def test_real_example_title_never_untitled_when_metadata_exists(rule_engine):
+    results = parse_poster_text(REAL_EXAMPLE_TEXT, rule_engine)
+    assert results[0].poster_title is not None
+    assert results[0].poster_title != "(untitled)"
+
+
+def test_only_dropbox_url_with_no_preceding_line_has_no_title(rule_engine):
+    """The one legitimate case for a missing title: a link with no
+    metadata line in front of it at all (nothing else to extract)."""
+    block = "https://www.dropbox.com/scl/fi/onlylink/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine)
+    assert parsed is not None
+    assert parsed.poster_title is None
+    assert parsed.district is None
+    assert parsed.estate is None
+    assert parsed.route_number is None
+    assert parsed.document_date is None
+
+
+def test_title_strips_leading_district_but_keeps_estate_and_route(rule_engine):
+    """District is stripped from the front of the title since it's a
+    separate structured field, but the estate/route/date/poster-type text
+    embedded further into the title string is left intact."""
+    poster = parse_poster_text(REAL_EXAMPLE_TEXT, rule_engine)[0]
+    assert not poster.poster_title.startswith("沙田")
+    assert "愉翠苑" in poster.poster_title
+    assert "73H" in poster.poster_title
+
+
+def test_estate_not_in_config_still_resolved_via_suffix_fallback(rule_engine):
+    """愉翠苑 is deliberately not present in config/rules/estates.yaml -
+    this is exactly the "missing field" case the parser must recover from
+    without needing config changes or an AI provider."""
+    poster = parse_poster_text(REAL_EXAMPLE_TEXT, rule_engine)[0]
+    assert poster.estate == "愉翠苑"
+
+
+def test_survives_invisible_zero_width_separator_line(rule_engine):
+    """A 'blank' line between two records that actually carries a
+    zero-width space (common after copy-pasting from web pages/Notion/
+    Word) used to make str.strip() see it as non-empty, causing both
+    records to be merged into a single block and losing the association
+    between the second record's metadata and its own Dropbox link."""
+    text = (
+        "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨\n"
+        "https://www.dropbox.com/scl/fi/abc123/poster1.pdf?dl=0\n"
+        "​\n"  # zero-width space masquerading as a blank line
+        "觀塘 20260710-通告-290A-彩虹邨\n"
+        "https://www.dropbox.com/scl/fi/def456/poster2.pdf?dl=0\n"
+    )
+    results = parse_poster_text(text, rule_engine)
+    assert len(results) == 2
+    assert results[0].dropbox_url.endswith("poster1.pdf?dl=0")
+    assert results[0].district == "Sha Tin"
+    assert results[0].estate == "愉翠苑"
+    assert results[1].dropbox_url.endswith("poster2.pdf?dl=0")
+    assert results[1].district == "Kwun Tong"
+    assert results[1].estate == "Choi Hung Estate"
+    assert results[1].route_number == "290A"
+
+
+def test_survives_inconsistent_spacing_and_blank_line_runs(rule_engine):
+    """Extra blank lines between the metadata line and its URL, and extra
+    leading/trailing whitespace on both, must not break association."""
+    text = (
+        "  沙田   20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨   \n"
+        "\n\n\n"
+        "   https://www.dropbox.com/scl/fi/abc123/poster.pdf?dl=0  \n"
+    )
+    results = parse_poster_text(text, rule_engine)
+    assert len(results) == 1
+    assert results[0].district == "Sha Tin"
+    assert results[0].estate == "愉翠苑"
+    assert results[0].dropbox_url == "https://www.dropbox.com/scl/fi/abc123/poster.pdf?dl=0"
+
+
+def test_survives_chinese_punctuation_in_metadata_line(rule_engine):
+    block = (
+        "沙田，好消息！73H：愉翠苑（來往大埔富蝶邨）\n"
+        "https://www.dropbox.com/scl/fi/punctuated/poster.pdf?dl=0"
+    )
+    parsed = parse_block(block, rule_engine)
+    assert parsed is not None
+    assert parsed.district == "Sha Tin"
+    assert parsed.route_number == "73H"
+    assert parsed.poster_title is not None
+    assert parsed.poster_title != "(untitled)"
+
+
+def test_closest_preceding_line_wins_over_earlier_stray_text(rule_engine):
+    """Per the "associate with the closest preceding non-empty line"
+    requirement: unrelated text further back (e.g. a leftover heading from
+    a previous paste, or explanatory notes) must never be pulled into the
+    next record's metadata - only the line immediately before the link is
+    used."""
+    text = (
+        "some unrelated heading that is not a record\n"
+        "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨\n"
+        "https://www.dropbox.com/scl/fi/abc123/poster.pdf?dl=0\n"
+    )
+    results = parse_poster_text(text, rule_engine)
+    assert len(results) == 1
+    assert "unrelated heading" not in results[0].poster_title
+    assert results[0].district == "Sha Tin"
+
+
+def test_three_records_back_to_back_all_associate_correctly(rule_engine):
+    text = (
+        "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨\n"
+        "https://www.dropbox.com/scl/fi/one/poster.pdf?dl=0\n"
+        "觀塘 20260710-通告-290A-彩虹邨\n"
+        "https://www.dropbox.com/scl/fi/two/poster.pdf?dl=0\n"
+        "黃大仙 20260712-公告-慈雲山邨\n"
+        "https://www.dropbox.com/scl/fi/three/poster.pdf?dl=0\n"
+    )
+    results = parse_poster_text(text, rule_engine)
+    assert len(results) == 3
+    assert [r.dropbox_url.split("/")[-2] for r in results] == ["one", "two", "three"]
+    assert results[0].district == "Sha Tin"
+    assert results[1].district == "Kwun Tong"
+    assert results[2].district == "Wong Tai Sin"
