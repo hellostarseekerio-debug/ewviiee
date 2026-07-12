@@ -212,14 +212,26 @@ office-automation-platform: admin bootstrap-from-env: admin account 'admin' rese
 office-automation-platform: admin bootstrap-from-env: SECURITY - remove OAP_BOOTSTRAP_ADMIN_USERNAME and OAP_BOOTSTRAP_ADMIN_PASSWORD from this service's environment variables now and redeploy. Leaving them set resets this password on every restart.
 ```
 
-If login still fails after seeing the "reset"/"created" line, the most
-likely cause is that the password you typed into the Environment tab isn't
-exactly the one you're typing at login (an extra trailing space from a
-copy-paste, a different browser autofill value, etc.) - the variable's
-value in the Environment tab is masked, so re-type both fresh rather than
-trying to eyeball it. If you instead see the "skipped" line (missing
-variable or a rejected weak password) or nothing about bootstrap at all,
-double-check the exact variable names for typos.
+If login still fails after seeing the "reset"/"created" line, try logging
+in once more and check the Logs tab again for the resulting
+`audit_event`/`login_failed` line - it now includes a `detail.reason`
+field showing exactly why, without ever revealing it in the response sent
+to the browser:
+
+- `no_account_with_this_username` - the bootstrap step never actually ran
+  against this database (wrong branch/commit deployed, variables set on a
+  different service, or a typo in the variable *names* - re-check the
+  "admin bootstrap-from-env" lines above this one).
+- `account_is_inactive` - shouldn't happen right after a bootstrap
+  reset (it forces `is_active=True`); if you see this, something else
+  deactivated the account afterward - see `docs/admin_guide.md`'s user
+  management section.
+- `password_did_not_match` - the account and bootstrap step are both
+  working correctly; the password typed at login doesn't byte-for-byte
+  match what's in the Environment tab (an extra trailing space from a
+  copy-paste, a different browser autofill value, etc. - the variable's
+  value in the Environment tab is masked, so re-type both fresh rather
+  than trying to eyeball it).
 
 Then log in with that username/password.
 

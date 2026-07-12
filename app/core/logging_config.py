@@ -110,6 +110,12 @@ def record_audit(
         resource_type=resource_type,
         resource_id=resource_id,
         success=success,
+        # `detail` was being persisted to the audit_logs table but silently
+        # dropped from the stdout line - on platforms with no Shell/DB
+        # access (e.g. Render's free tier), stdout (the Logs tab) is the
+        # *only* place an operator can see it, so it must be included here
+        # too, not just written to the database.
+        detail=detail,
     )
 
 

@@ -116,10 +116,23 @@ def login(
         )
 
     if not user or not user.is_active or not verify_password(form_data.password, user.hashed_password):
+        # The HTTP response and the client-facing message deliberately never
+        # distinguish these cases (leaking "that account doesn't exist" to
+        # an unauthenticated caller is its own information-disclosure risk).
+        # But an operator debugging a real "why won't this login work" case
+        # from server logs alone (e.g. no Shell/DB access) has no other way
+        # to tell them apart, so the *server-side* audit log - which
+        # reaches stdout, see record_audit() - safely records which one.
+        if user is None:
+            reason = "no_account_with_this_username"
+        elif not user.is_active:
+            reason = "account_is_inactive"
+        else:
+            reason = "password_did_not_match"
         if user:
             register_failed_login(user)
             db.commit()
-        record_audit(actor=form_data.username, action="login_failed", success=False)
+        record_audit(actor=form_data.username, action="login_failed", success=False, detail={"reason": reason})
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect username or password")
 
     if user.mfa_enabled:
