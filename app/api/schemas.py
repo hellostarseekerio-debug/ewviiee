@@ -168,3 +168,120 @@ class DashboardStats(BaseModel):
     ai_usage_cloud: int
     ai_usage_local: int
     recent_activity: list[dict]
+
+
+# --- Poster Archive (app/posters/parser.py, app/api/routes/posters.py) -----
+
+class WorkflowStep(BaseModel):
+    """One structured step of a poster's optional workflow instructions,
+    e.g. {"step": 1, "action": "Generate application PDF"} - stored as
+    data (see Poster.workflow_steps) rather than a plain-text blob so a
+    future automation stage can read/execute it without re-parsing text."""
+
+    step: int = Field(..., ge=1)
+    action: str = Field(..., min_length=1, max_length=256)
+    detail: str | None = Field(default=None, max_length=2000)
+
+
+class PosterOut(BaseModel):
+    id: str
+    district: str | None
+    estate: str | None
+    poster_title: str | None
+    poster_type: str | None
+    route_number: str | None
+    document_date: datetime | None
+    dropbox_url: str | None
+    language: str | None
+    keywords: list[str] | None
+    notes: str | None
+    workflow_steps: list[WorkflowStep] | None
+    approval_status: str
+    ai_summary: str | None
+    ocr_text: str | None
+    attachments: list[dict] | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PosterListResponse(BaseModel):
+    total: int
+    results: list[PosterOut]
+
+
+class PosterCreateRequest(BaseModel):
+    """Manual single-record creation - the paste-text import path
+    (POST /api/posters/import) is the primary way records are added, but a
+    manual add covers the case of a single record typed in directly."""
+
+    district: str | None = None
+    estate: str | None = None
+    poster_title: str | None = None
+    poster_type: str | None = None
+    route_number: str | None = None
+    document_date: datetime | None = None
+    dropbox_url: str | None = None
+    language: str | None = None
+    keywords: list[str] | None = None
+    notes: str | None = None
+    workflow_steps: list[WorkflowStep] | None = None
+
+    @field_validator("dropbox_url")
+    @classmethod
+    def dropbox_url_must_be_valid(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.posters.validation import assert_valid_dropbox_url
+
+        assert_valid_dropbox_url(value)
+        return value.strip()
+
+
+class PosterUpdateRequest(BaseModel):
+    district: str | None = None
+    estate: str | None = None
+    poster_title: str | None = None
+    poster_type: str | None = None
+    route_number: str | None = None
+    document_date: datetime | None = None
+    dropbox_url: str | None = None
+    language: str | None = None
+    keywords: list[str] | None = None
+    notes: str | None = None
+    workflow_steps: list[WorkflowStep] | None = None
+    approval_status: str | None = None
+
+    @field_validator("dropbox_url")
+    @classmethod
+    def dropbox_url_must_be_valid(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.posters.validation import assert_valid_dropbox_url
+
+        assert_valid_dropbox_url(value)
+        return value.strip()
+
+
+class PosterImportRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+
+
+class PosterImportResult(BaseModel):
+    dropbox_url: str
+    status: str  # "imported" | "duplicate" | "invalid_url"
+    id: str | None = None
+    reason: str | None = None
+
+
+class PosterImportResponse(BaseModel):
+    total_parsed: int
+    imported: int
+    duplicates: int
+    invalid: int
+    results: list[PosterImportResult]
+
+
+class PosterBulkDeleteRequest(BaseModel):
+    ids: list[str] = Field(..., min_length=1, max_length=1000)

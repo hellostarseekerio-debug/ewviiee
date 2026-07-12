@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   FileText,
+  FolderKanban,
   Search,
   Sparkles,
   Users,
@@ -19,6 +20,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/posters", label: "Poster Archive", icon: FolderKanban },
   { href: "/search", label: "Search", icon: Search },
   { href: "/ai", label: "AI Insights", icon: Sparkles },
   { href: "/admin/users", label: "Users", icon: Users, minRole: "admin" },

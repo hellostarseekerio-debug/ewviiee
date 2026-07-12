@@ -33,7 +33,8 @@ app/
   workflow/    configurable stage pipeline engine + YAML workflow loader
   plugins/     plugin interface + manager + housing_estate_poster plugin
   search/      multi-field document search
-  api/         FastAPI backend (auth+RBAC, documents/upload/review, search, workflows, plugins, settings)
+  posters/     Poster Archive: paste-text parser + Dropbox URL validation (independent of the workflow engine)
+  api/         FastAPI backend (auth+RBAC, documents/upload/review, search, workflows, plugins, settings, posters)
   gui/         PySide6 desktop shell (login, dashboard, explorer, workflow manager, review, search, logs, settings)
 config/
   rules/       districts.yaml, estates.yaml, aliases.yaml, validation.yaml, naming.yaml, poster_mappings.yaml

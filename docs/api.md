@@ -182,6 +182,118 @@ Returns all admin-configurable runtime settings, e.g.
 
 Takes effect immediately (no restart) - see `docs/PRIVACY.md`.
 
+## Poster Archive
+
+Paste-text Dropbox link management: staff paste a block of text containing
+one or more poster/notice records (a title line plus a Dropbox link) and
+`app/posters/parser.py` extracts district/estate/title/type/route/date/
+language/keywords per record - deterministically (YAML-driven alias/fuzzy
+matching, the same engine the Housing Estate Poster plugin uses), not via
+an AI provider. A field that can't be confidently extracted is left blank,
+never guessed. See `frontend/app/(app)/posters/page.tsx` for the UI.
+
+### `POST /api/posters/import` (requires editor)
+
+```json
+{ "text": "沙田 20260707-海報-...\nhttps://www.dropbox.com/...\n\n..." }
+```
+
+Splits `text` into one record per Dropbox link found, parses each, and
+bulk-inserts every valid, non-duplicate one in a single transaction.
+Returns:
+
+```json
+{
+  "total_parsed": 2,
+  "imported": 1,
+  "duplicates": 1,
+  "invalid": 0,
+  "results": [
+    { "dropbox_url": "...", "status": "imported", "id": "...", "reason": null },
+    { "dropbox_url": "...", "status": "duplicate", "id": null, "reason": null }
+  ]
+}
+```
+
+Re-pasting the same text is always safe - every repeated Dropbox link
+comes back as `"status": "duplicate"`, never an error, and pasting text
+with no Dropbox link at all returns `"total_parsed": 0` rather than
+failing. `status: "invalid_url"` covers a link that matched the
+Dropbox-link regex loosely but fails full URL validation.
+
+### `GET /api/posters`
+
+Query params (all optional except pagination): `district`, `poster_type`
+(exact match), `date_from`/`date_to` (ISO datetimes, inclusive range on
+`document_date`), `has_dropbox` (`true`/`false` - the "Has Dropbox" /
+"Missing Dropbox" filters), `sort_by` (`created_at` | `updated_at` |
+`document_date` | `district` | `poster_title`, default `created_at`),
+`sort_dir` (`asc`|`desc`, default `desc`), `skip` (≥0), `limit` (1-200,
+default 50). Returns `{"total": N, "results": [PosterOut, ...]}`.
+
+### `GET /api/posters/search`
+
+Same filters as above, plus `q` - a free-text search across
+`poster_title`, `district`, `estate`, `route_number`, `dropbox_url`, and
+`notes` (case-insensitive substring match). Same paginated response shape
+as `GET /api/posters`.
+
+### `GET /api/posters/export`
+
+Same filter params as `GET /api/posters` (no pagination - exports every
+matching row). Returns `text/csv` with a `Content-Disposition: attachment`
+header, one row per poster.
+
+### `GET /api/posters/{poster_id}`
+
+Returns a single record, or 404.
+
+### `POST /api/posters` (requires editor)
+
+Manual single-record creation - the paste-text import above is the
+primary way records are added; this covers typing one in directly.
+Accepts the same fields as `PosterOut` (all optional except none are
+strictly required - a record can start with just a title, or just a
+Dropbox link). Rejects a malformed Dropbox URL (422) or one that's
+already in use by another record (409).
+
+### `PATCH /api/posters/{poster_id}` (requires editor)
+
+Partial update - only send the fields you want to change. Same Dropbox
+URL validation/duplicate rules as create. `workflow_steps` (see below) and
+`approval_status` (`pending`|`approved`|`rejected`) can be updated here
+too.
+
+### `DELETE /api/posters/{poster_id}` (requires admin)
+
+Hard delete (unlike Documents, there is no soft-delete/recovery for a
+poster record - it is a reference row to an external Dropbox link, not a
+processed file with its own version history to protect).
+
+### `POST /api/posters/bulk-delete` (requires admin)
+
+```json
+{ "ids": ["id-1", "id-2", "..."] }
+```
+
+Deletes up to 1000 records in a single statement (`DELETE ... WHERE id IN
+(...)`- one round trip regardless of how many ids). Returns
+`{"deleted": N}`.
+
+### `workflow_steps` - structured workflow instructions
+
+Any poster record can optionally carry an ordered list of workflow steps,
+stored as data (a JSON column) rather than a plain-text blob, so a future
+automation stage can read/execute them without re-parsing free text:
+
+```json
+"workflow_steps": [
+  { "step": 1, "action": "Generate application PDF" },
+  { "step": 2, "action": "Replace images" },
+  { "step": 3, "action": "Export final PDF", "detail": "Use the Q3 template" }
+]
+```
+
 ## Error format
 
 FastAPI's standard `{"detail": "..."}` shape is used for all 4xx/5xx

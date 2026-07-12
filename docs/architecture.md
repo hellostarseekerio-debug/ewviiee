@@ -131,3 +131,36 @@ workflow engine.
   application code.
 - New AI provider = implement `AIProvider` Protocol + one branch in
   `app/ai/factory.py`; consuming code never changes.
+
+## Poster Archive (`app/posters/`, `posters` table)
+
+A second, independent record type alongside `Document`/the workflow
+engine - staff paste unstructured text (a title line plus a Dropbox link)
+rather than upload a file, so it doesn't go through
+import→classify→OCR→extract→validate→generate→review→export→archive at
+all. Deliberately its own table rather than another `Document` row:
+
+- **`app/posters/parser.py`** - regex field extraction (date, route
+  number, bracketed title, language detection, poster type keywords) plus
+  the *same* `RuleEngine.resolve_district`/`resolve_estate` fuzzy/alias
+  matching the Housing Estate Poster plugin uses (`app/api/deps.py`'s
+  `get_rule_engine()`), so district/estate config lives in one place
+  (`config/rules/districts.yaml`/`estates.yaml`) for both features. No AI
+  provider involved - deterministic, fast, and free for pastes of hundreds
+  of records at once.
+- **`app/posters/validation.py`** - Dropbox URL validation, shared by the
+  manual create/edit endpoints and the import path.
+- **`app/api/routes/posters.py`** - REST CRUD + `/import` (bulk parse and
+  insert) + `/search` + `/export` (CSV) + `/bulk-delete`.
+
+**Schema extensibility, without a future redesign**: `posters` already
+carries `approval_status` (reusing the same `ApprovalStatus` enum/values
+as `documents.approval_status`), `ai_summary`, `ocr_text`, and
+`attachments` (a JSON list) - all nullable and unused today, specifically
+so that a later automation stage (uploading a generated PDF, running OCR
+on a scanned poster, requiring reviewer sign-off) can populate an existing
+row's column rather than needing another migration to add it. See
+`alembic/versions/0005_poster_archive.py`'s docstring for why it reuses
+the existing `approvalstatus` Postgres enum type instead of defining a
+second one, and `app/core/models.py`'s `Poster` class docstring for the
+full field-by-field rationale.

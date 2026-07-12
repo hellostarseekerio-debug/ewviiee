@@ -138,6 +138,70 @@ export interface SystemSettings {
   [key: string]: string;
 }
 
+// --- Poster Archive: mirrors app/api/schemas.py's Poster* models exactly -
+export interface WorkflowStep {
+  step: number;
+  action: string;
+  detail?: string | null;
+}
+
+export interface PosterOut {
+  id: string;
+  district: string | null;
+  estate: string | null;
+  poster_title: string | null;
+  poster_type: string | null;
+  route_number: string | null;
+  document_date: string | null;
+  dropbox_url: string | null;
+  language: string | null;
+  keywords: string[] | null;
+  notes: string | null;
+  workflow_steps: WorkflowStep[] | null;
+  approval_status: "pending" | "approved" | "rejected";
+  ai_summary: string | null;
+  ocr_text: string | null;
+  attachments: Record<string, unknown>[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PosterListResponse {
+  total: number;
+  results: PosterOut[];
+}
+
+export interface PosterCreateRequest {
+  district?: string | null;
+  estate?: string | null;
+  poster_title?: string | null;
+  poster_type?: string | null;
+  route_number?: string | null;
+  document_date?: string | null;
+  dropbox_url?: string | null;
+  language?: string | null;
+  keywords?: string[] | null;
+  notes?: string | null;
+  workflow_steps?: WorkflowStep[] | null;
+}
+
+export type PosterUpdateRequest = Partial<PosterCreateRequest> & { approval_status?: string | null };
+
+export interface PosterImportResult {
+  dropbox_url: string;
+  status: "imported" | "duplicate" | "invalid_url";
+  id?: string | null;
+  reason?: string | null;
+}
+
+export interface PosterImportResponse {
+  total_parsed: number;
+  imported: number;
+  duplicates: number;
+  invalid: number;
+  results: PosterImportResult[];
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {

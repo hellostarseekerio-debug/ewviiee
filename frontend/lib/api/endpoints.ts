@@ -1,10 +1,15 @@
-import { apiFetch, API_BASE_URL } from "./client";
+import { apiFetch, API_BASE_URL, getToken } from "./client";
 import type {
   DashboardStats,
   DocumentOut,
   DocumentVersionOut,
   MFASetupResponse,
   PluginOut,
+  PosterCreateRequest,
+  PosterImportResponse,
+  PosterListResponse,
+  PosterOut,
+  PosterUpdateRequest,
   SearchResponse,
   SystemSettings,
   TokenResponse,
@@ -116,6 +121,51 @@ export const dashboardApi = {
 // --- Health: app/api/main.py -------------------------------------------------
 export const healthApi = {
   check: () => apiFetch<{ status: string; app: string }>("/health", { skipAuth: true }),
+};
+
+// --- Posters: app/api/routes/posters.py (Poster Archive) --------------------
+export interface PosterFilters {
+  district?: string;
+  poster_type?: string;
+  date_from?: string;
+  date_to?: string;
+  has_dropbox?: boolean;
+}
+
+export const postersApi = {
+  import: (text: string) =>
+    apiFetch<PosterImportResponse>("/api/posters/import", { method: "POST", body: { text } }),
+  list: (params: PosterFilters & { skip?: number; limit?: number; sort_by?: string; sort_dir?: string }) =>
+    apiFetch<PosterListResponse>("/api/posters", { query: params as Record<string, string | number | boolean | undefined> }),
+  search: (params: PosterFilters & { q?: string; skip?: number; limit?: number }) =>
+    apiFetch<PosterListResponse>("/api/posters/search", { query: params as Record<string, string | number | boolean | undefined> }),
+  get: (id: string) => apiFetch<PosterOut>(`/api/posters/${id}`),
+  create: (payload: PosterCreateRequest) => apiFetch<PosterOut>("/api/posters", { method: "POST", body: payload }),
+  update: (id: string, payload: PosterUpdateRequest) =>
+    apiFetch<PosterOut>(`/api/posters/${id}`, { method: "PATCH", body: payload }),
+  remove: (id: string) => apiFetch<void>(`/api/posters/${id}`, { method: "DELETE" }),
+  bulkDelete: (ids: string[]) =>
+    apiFetch<{ deleted: number }>("/api/posters/bulk-delete", { method: "POST", body: { ids } }),
+  exportCsvUrl: (filters: PosterFilters) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined) query.set(key, String(value));
+    }
+    return `${API_BASE_URL}/api/posters/export?${query.toString()}`;
+  },
+  downloadCsv: async (filters: PosterFilters) => {
+    const response = await fetch(postersApi.exportCsvUrl(filters), {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!response.ok) throw new Error("Export failed");
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "posters_export.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // XHR-based upload so we can report real progress - fetch() has no

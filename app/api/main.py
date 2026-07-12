@@ -16,6 +16,7 @@ from app.api.routes import (
     dashboard,
     documents,
     plugins,
+    posters,
     search,
     settings as settings_routes,
     workflows,
@@ -113,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(plugins.router)
     app.include_router(settings_routes.router)
     app.include_router(dashboard.router)
+    app.include_router(posters.router)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

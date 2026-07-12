@@ -234,3 +234,68 @@ class AuditLog(Base):
     detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Poster(Base):
+    """A single poster/notice record parsed from a pasted block of text
+    (title + metadata + a Dropbox link) via the Poster Archive's paste-text
+    import - see app/posters/parser.py. Deliberately independent of the
+    `documents` table: a poster record here is a *reference* to a Dropbox
+    folder, not a document this platform has itself processed, and is
+    parsed from unstructured pasted text rather than an uploaded file.
+
+    Future-compatibility fields (ai_summary, ocr_text, approval_status,
+    attachments) are included now, all nullable, specifically so that
+    later automation (uploading a generated PDF, running OCR, requiring
+    review) can attach to an existing row without another migration -
+    they default to unused/empty and cost nothing until populated.
+    """
+
+    __tablename__ = "posters"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+
+    district: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    estate: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    poster_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    poster_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    route_number: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    document_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    language: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    keywords: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+    # Unique so the same Dropbox link can never be stored twice (the import
+    # endpoint also pre-checks this in bulk before inserting, so a large
+    # paste never fails outright over one repeated link - see
+    # app/api/routes/posters.py). Nullable to support the "Missing Dropbox"
+    # filter (a record added/edited without a link yet) - a standard SQL
+    # UNIQUE constraint already treats every NULL as distinct from every
+    # other NULL, so multiple link-less rows coexist without conflict while
+    # any two *equal* non-null URLs still do.
+    dropbox_url: Mapped[str | None] = mapped_column(String(1024), unique=True, nullable=True, index=True)
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The exact pasted block this record was parsed from, kept verbatim so
+    # a human can always re-check what the parser saw if a field looks
+    # wrong - never modified after import.
+    source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Structured, ordered workflow instructions ({"step": 1, "action": "...",
+    # "detail": "..."}), e.g. "Step 1: Generate application PDF" - stored as
+    # data (not a plain-text blob) so a future automation stage can execute
+    # or display them without re-parsing free text.
+    workflow_steps: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+
+    # --- Future-compatibility columns (see class docstring) -----------------
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        SAEnum(ApprovalStatus), default=ApprovalStatus.PENDING, index=True
+    )
+    ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachments: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

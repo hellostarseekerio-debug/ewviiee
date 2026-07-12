@@ -7,10 +7,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.models import User, UserRole
 from app.core.security import decode_access_token, is_account_locked, role_rank
 from app.plugins.manager import PluginManager
+from app.rules.engine import RuleEngine, load_ruleset
 from app.workflow.engine import WorkflowEngine
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
@@ -25,6 +27,18 @@ def get_plugin_manager() -> PluginManager:
 
 def get_workflow_engine(manager: PluginManager = Depends(get_plugin_manager)) -> WorkflowEngine:
     return WorkflowEngine(plugin_registry={p.plugin_id: p for p in manager.list_plugins()})
+
+
+@lru_cache
+def get_rule_engine() -> RuleEngine:
+    """District/estate alias+fuzzy resolution, shared by the Housing Estate
+    Poster plugin and the Poster Archive's paste-text parser
+    (app/posters/parser.py). No AI provider wired in here deliberately -
+    the parser needs to stay fast/free/deterministic for pastes of
+    hundreds of records at once, matching the "deterministic first" policy
+    already documented on RuleEngine itself."""
+    settings = get_settings()
+    return RuleEngine(load_ruleset(settings.config_dir))
 
 
 def get_current_user(
