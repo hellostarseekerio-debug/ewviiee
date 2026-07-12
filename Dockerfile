@@ -55,6 +55,10 @@ COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY config/ ./config/
+# docker/entrypoint.sh runs scripts/bootstrap_admin_from_env.py after
+# migrations on every start (see docs/RENDER_DEPLOYMENT.md step 8) - it
+# must be copied in too, not just the entrypoint script itself.
+COPY scripts/ ./scripts/
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 RUN chmod +x ./docker/entrypoint.sh
 
