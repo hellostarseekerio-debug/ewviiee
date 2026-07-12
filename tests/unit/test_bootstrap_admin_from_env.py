@@ -21,12 +21,19 @@ def _run():
     bootstrap_admin_from_env.main()
 
 
-def test_noop_when_neither_env_var_set(monkeypatch):
+def test_noop_when_neither_env_var_set_still_logs_something(monkeypatch, capsys):
+    """Regression guard: the previous version returned with zero output when
+    neither variable was set, which is indistinguishable in Render's Logs tab
+    from "the variables aren't being read for some other reason" (a typo'd
+    key, stray whitespace, wrong service) - exactly the ambiguity that made a
+    real failed-login report hard to debug. Every path must now say
+    something."""
     monkeypatch.delenv("OAP_BOOTSTRAP_ADMIN_USERNAME", raising=False)
     monkeypatch.delenv("OAP_BOOTSTRAP_ADMIN_PASSWORD", raising=False)
     _run()
     with session_scope() as db:
         assert db.query(User).count() == 0
+    assert "not requested" in capsys.readouterr().out
 
 
 def test_skips_when_only_username_set(monkeypatch, capsys):
@@ -60,7 +67,9 @@ def test_creates_admin_from_env(monkeypatch, capsys):
         assert verify_password("EnvBootstrap123!", user.hashed_password)
 
     output = capsys.readouterr().out
-    assert "created from environment variables" in output
+    assert "0 user(s) currently in the database" in output
+    assert "existing account for 'envadmin': not found" in output
+    assert "admin account 'envadmin' created and committed to the database" in output
     assert "remove OAP_BOOTSTRAP_ADMIN_USERNAME" in output
     assert "EnvBootstrap123!" not in output
 
@@ -99,3 +108,24 @@ def test_resets_existing_locked_user_and_clears_mfa(monkeypatch):
         assert user.mfa_secret_encrypted is None
         assert verify_password("BrandNewSecret456!", user.hashed_password)
         assert not verify_password("OldPassword123!", user.hashed_password)
+
+
+def test_bootstrap_then_real_login_end_to_end(monkeypatch):
+    """Reproduces the exact reported scenario: set the two bootstrap
+    variables, run the script (as docker/entrypoint.sh does before starting
+    the app), then log in through the real /api/auth/token endpoint - not
+    just checking the DB row directly. Regression guard for "the app starts
+    successfully but login still fails"."""
+    from starlette.testclient import TestClient
+
+    from app.api.main import create_app
+
+    monkeypatch.setenv("OAP_BOOTSTRAP_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("OAP_BOOTSTRAP_ADMIN_PASSWORD", "LegcoAI2026!Secure")
+    _run()
+
+    with TestClient(create_app()) as client:
+        response = client.post("/api/auth/token", data={"username": "admin", "password": "LegcoAI2026!Secure"})
+
+    assert response.status_code == 200
+    assert response.json()["access_token"] is not None

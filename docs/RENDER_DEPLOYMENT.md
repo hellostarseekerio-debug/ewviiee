@@ -202,12 +202,24 @@ bootstrap automatically right after migrations, every time it starts: it
 creates that account as admin if it doesn't exist yet, or - if it already
 exists - resets its password, clears any lockout, disables MFA, and forces
 the role back to admin (so this doubles as a "forgot my password" recovery
-path, not just first-time setup). Check the **Logs** tab for a line like:
+path, not just first-time setup). Check the **Logs** tab - every run always
+logs something here (never silent), so you can tell exactly what happened:
 
 ```
-office-automation-platform: admin account 'admin' created from environment variables.
-office-automation-platform: SECURITY - remove OAP_BOOTSTRAP_ADMIN_USERNAME and OAP_BOOTSTRAP_ADMIN_PASSWORD from this service's environment variables now and redeploy. Leaving them set resets this password on every restart.
+office-automation-platform: admin bootstrap-from-env: both environment variables are set for username 'admin'.
+office-automation-platform: admin bootstrap-from-env: 1 user(s) currently in the database; existing account for 'admin': found.
+office-automation-platform: admin bootstrap-from-env: admin account 'admin' reset and committed to the database.
+office-automation-platform: admin bootstrap-from-env: SECURITY - remove OAP_BOOTSTRAP_ADMIN_USERNAME and OAP_BOOTSTRAP_ADMIN_PASSWORD from this service's environment variables now and redeploy. Leaving them set resets this password on every restart.
 ```
+
+If login still fails after seeing the "reset"/"created" line, the most
+likely cause is that the password you typed into the Environment tab isn't
+exactly the one you're typing at login (an extra trailing space from a
+copy-paste, a different browser autofill value, etc.) - the variable's
+value in the Environment tab is masked, so re-type both fresh rather than
+trying to eyeball it. If you instead see the "skipped" line (missing
+variable or a rejected weak password) or nothing about bootstrap at all,
+double-check the exact variable names for typos.
 
 Then log in with that username/password.
 
