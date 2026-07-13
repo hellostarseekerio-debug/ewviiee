@@ -1,21 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  Archive,
+  ChevronDown,
   ClipboardPaste,
+  Clock,
   Download,
   ExternalLink,
+  FolderInput,
   FolderKanban,
   LayoutGrid,
   List as ListIcon,
+  Loader2,
   Pencil,
   Plus,
+  Star,
   Trash2,
 } from "lucide-react";
-import { postersApi } from "@/lib/api/endpoints";
+import { exportJobsApi, foldersApi, postersApi, starredApi } from "@/lib/api/endpoints";
 import type { PosterFilters } from "@/lib/api/endpoints";
-import type { PosterOut, PosterStatusValue } from "@/lib/api/types";
+import type { FolderOut, FolderTreeNodeOut, PosterOut, PosterStatusValue, PosterZipExportRequest } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/types";
 import { useAuth, hasRole } from "@/lib/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,7 +51,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PosterStatusBadge } from "@/components/documents/status-badge";
-import { ChevronDown } from "lucide-react";
+import { FolderTree, posterDragProps } from "@/components/folders/folder-tree";
+import { FolderBreadcrumbs } from "@/components/folders/breadcrumbs";
+import { FolderPickerDialog } from "@/components/folders/folder-picker-dialog";
 
 // Mirrors app/posters/status.py's POSTER_STATUS_TRANSITIONS - purely to
 // decide which options to *offer* in the menu below. The server is the
@@ -107,7 +115,20 @@ function PosterStatusMenu({ poster, onChanged }: { poster: PosterOut; onChanged:
   );
 }
 
+function StarToggle({ starred, onToggle }: { starred: boolean; onToggle: () => void }) {
+  return (
+    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggle} aria-label={starred ? "Unstar" : "Star"}>
+      <Star className={`h-4 w-4 ${starred ? "fill-warning text-warning" : "text-muted-foreground"}`} />
+    </Button>
+  );
+}
+
 const PAGE_SIZE = 24;
+
+type ViewMode =
+  | { kind: "folder"; folderId: string | null }
+  | { kind: "status"; status: PosterStatusValue }
+  | { kind: "favorites" };
 
 interface Filters {
   q: string;
@@ -141,27 +162,99 @@ export default function PosterArchivePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pasteOpen, setPasteOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<PosterOut | "new" | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>({ kind: "folder", folderId: null });
+  const [folderTree, setFolderTree] = useState<FolderTreeNodeOut[]>([]);
+  const [breadcrumbs, setBreadcrumbs] = useState<FolderOut[]>([]);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [movePickerOpen, setMovePickerOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadTree = useCallback(async () => {
+    try {
+      const tree = await foldersApi.tree("poster");
+      setFolderTree(tree);
+    } catch {
+      // Non-fatal - the main list still works without the tree.
+    }
+  }, []);
+
+  const loadStarred = useCallback(async () => {
+    try {
+      const items = await starredApi.list("poster");
+      setStarredIds(new Set(items.map((i) => i.resource_id)));
+    } catch {
+      // Favorites are a convenience feature - failing to load them must
+      // never block the rest of the page.
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const apiFilters = toApiFilters(filters);
-      const response = filters.q.trim()
-        ? await postersApi.search({ q: filters.q.trim(), ...apiFilters, skip: page * PAGE_SIZE, limit: PAGE_SIZE })
-        : await postersApi.list({ ...apiFilters, skip: page * PAGE_SIZE, limit: PAGE_SIZE });
-      setPosters(response.results);
-      setTotal(response.total);
+      if (viewMode.kind === "favorites") {
+        const items = await starredApi.list("poster");
+        setStarredIds(new Set(items.map((i) => i.resource_id)));
+        const fetched = await Promise.allSettled(items.map((i) => postersApi.get(i.resource_id)));
+        const results = fetched.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+        setPosters(results.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+        setTotal(results.length);
+      } else if (viewMode.kind === "status") {
+        const response = await postersApi.list({
+          ...apiFilters,
+          status: viewMode.status,
+          skip: page * PAGE_SIZE,
+          limit: PAGE_SIZE,
+        } as PosterFilters & { status: string; skip: number; limit: number });
+        setPosters(response.results);
+        setTotal(response.total);
+      } else {
+        const folderParams = viewMode.folderId ? { folder_id: viewMode.folderId, recursive: true } : {};
+        const response = filters.q.trim()
+          ? await postersApi.search({ q: filters.q.trim(), ...apiFilters, ...folderParams, skip: page * PAGE_SIZE, limit: PAGE_SIZE })
+          : await postersApi.list({ ...apiFilters, ...folderParams, skip: page * PAGE_SIZE, limit: PAGE_SIZE });
+        setPosters(response.results);
+        setTotal(response.total);
+      }
       setSelected(new Set());
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load posters");
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, viewMode]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadTree();
+    loadStarred();
+  }, [loadTree, loadStarred]);
+
+  useEffect(() => {
+    if (viewMode.kind === "folder" && viewMode.folderId) {
+      foldersApi
+        .get(viewMode.folderId)
+        .then((detail) => setBreadcrumbs(detail.breadcrumbs))
+        .catch(() => setBreadcrumbs([]));
+    } else {
+      setBreadcrumbs([]);
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  function refreshAll() {
+    load();
+    loadTree();
+  }
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -172,15 +265,46 @@ export default function PosterArchivePage() {
     });
   }
 
+  async function toggleStar(posterId: string) {
+    const wasStarred = starredIds.has(posterId);
+    try {
+      if (wasStarred) {
+        await starredApi.unstar("poster", posterId);
+      } else {
+        await starredApi.star("poster", posterId);
+      }
+      setStarredIds((prev) => {
+        const next = new Set(prev);
+        if (wasStarred) next.delete(posterId);
+        else next.add(posterId);
+        return next;
+      });
+      if (viewMode.kind === "favorites" && wasStarred) load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to update favorite");
+    }
+  }
+
   async function handleBulkDelete() {
     if (selected.size === 0) return;
     if (!confirm(`Delete ${selected.size} selected record(s)? This cannot be undone.`)) return;
     try {
       await postersApi.bulkDelete(Array.from(selected));
       toast.success(`Deleted ${selected.size} record(s)`);
-      load();
+      refreshAll();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Bulk delete failed");
+    }
+  }
+
+  async function handleBulkMove(folderId: string | null) {
+    if (selected.size === 0) return;
+    try {
+      const result = await postersApi.bulkMove({ ids: Array.from(selected), folder_id: folderId });
+      toast.success(`Moved ${result.moved} record(s)`);
+      refreshAll();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Move failed");
     }
   }
 
@@ -189,13 +313,13 @@ export default function PosterArchivePage() {
     try {
       await postersApi.remove(id);
       toast.success("Deleted");
-      load();
+      refreshAll();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Delete failed");
     }
   }
 
-  async function handleExport() {
+  async function handleExportCsv() {
     try {
       await postersApi.downloadCsv(toApiFilters(filters));
     } catch {
@@ -203,303 +327,479 @@ export default function PosterArchivePage() {
     }
   }
 
+  function pollExportJob(jobId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const job = await exportJobsApi.get(jobId);
+        if (job.status === "completed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          await exportJobsApi.download(jobId);
+          toast.success("ZIP export ready and downloaded");
+        } else if (job.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          toast.error(job.error_message || "Export failed");
+        }
+      } catch {
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+    }, 2000);
+  }
+
+  async function handleExportZip(payload: PosterZipExportRequest) {
+    setExporting(true);
+    try {
+      const result = await postersApi.exportZip(payload);
+      if (result.kind === "downloaded") {
+        toast.success("ZIP downloaded");
+      } else {
+        toast.success(`Export queued (${result.job.total_items} records) - preparing in the background...`);
+        pollExportJob(result.job.job_id);
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function currentViewZipPayload(): PosterZipExportRequest {
+    const apiFilters = toApiFilters(filters);
+    const payload: PosterZipExportRequest = { ...apiFilters };
+    if (filters.q.trim()) payload.q = filters.q.trim();
+    if (viewMode.kind === "folder" && viewMode.folderId) {
+      payload.folder_id = viewMode.folderId;
+      payload.recursive = true;
+    }
+    return payload;
+  }
+
+  const emptyStateMessage =
+    viewMode.kind === "favorites"
+      ? "No favorites yet - star a record to find it here quickly."
+      : viewMode.kind === "status"
+        ? `No ${POSTER_STATUS_LABEL[viewMode.status].toLowerCase()} records.`
+        : viewMode.folderId
+          ? "This folder is empty."
+          : "No poster records yet. Paste a block of text to get started.";
+
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-            <FolderKanban className="h-5 w-5" /> Poster Archive
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Paste a block of text containing Dropbox links to automatically parse and organize poster records.
-          </p>
+    <div className="flex flex-col gap-5 lg:flex-row">
+      <aside className="flex shrink-0 flex-col gap-4 lg:w-64">
+        <div className="flex flex-col gap-0.5">
+          <SidebarQuickView
+            icon={Clock}
+            label="Recent"
+            active={viewMode.kind === "folder" && viewMode.folderId === null}
+            onClick={() => setViewMode({ kind: "folder", folderId: null })}
+          />
+          <SidebarQuickView
+            icon={Star}
+            label="Favorites"
+            active={viewMode.kind === "favorites"}
+            onClick={() => setViewMode({ kind: "favorites" })}
+          />
+          <SidebarQuickView
+            icon={Loader2}
+            label="Processing"
+            active={viewMode.kind === "status" && viewMode.status === "pending_review"}
+            onClick={() => setViewMode({ kind: "status", status: "pending_review" })}
+          />
+          <SidebarQuickView
+            icon={Archive}
+            label="Archived"
+            active={viewMode.kind === "status" && viewMode.status === "archived"}
+            onClick={() => setViewMode({ kind: "status", status: "archived" })}
+          />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
+        <div className="flex flex-col gap-1">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Folders</p>
+          <FolderTree
+            nodes={folderTree}
+            selectedFolderId={viewMode.kind === "folder" ? viewMode.folderId : null}
+            onSelect={(folderId) => setViewMode({ kind: "folder", folderId })}
+            onChanged={refreshAll}
+          />
           {hasRole(user, "editor") && (
-            <>
-              <Button variant="outline" onClick={() => setEditTarget("new")}>
-                <Plus className="h-4 w-4" /> Add manually
-              </Button>
-              <Button onClick={() => setPasteOpen(true)}>
-                <ClipboardPaste className="h-4 w-4" /> Paste text
-              </Button>
-            </>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-1 justify-start text-muted-foreground"
+              onClick={async () => {
+                const name = window.prompt("New top-level folder name");
+                if (!name || !name.trim()) return;
+                try {
+                  await foldersApi.create({ name: name.trim(), parent_id: null });
+                  loadTree();
+                } catch (err) {
+                  toast.error(err instanceof ApiError ? err.message : "Create failed");
+                }
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" /> New folder
+            </Button>
           )}
         </div>
-      </div>
+      </aside>
 
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Input
-              placeholder="Search district, estate, title, route, Dropbox URL..."
-              value={filters.q}
-              onChange={(e) => {
-                setPage(0);
-                setFilters((f) => ({ ...f, q: e.target.value }));
-              }}
-              className="sm:max-w-sm"
-            />
-            <div className="ml-auto flex gap-1 rounded-lg border border-border p-1">
-              <Button
-                variant={view === "table" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setView("table")}
-              >
-                <ListIcon className="h-4 w-4" /> Table
-              </Button>
-              <Button variant={view === "card" ? "secondary" : "ghost"} size="sm" onClick={() => setView("card")}>
-                <LayoutGrid className="h-4 w-4" /> Cards
-              </Button>
-            </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+              <FolderKanban className="h-5 w-5" /> Poster Archive
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Paste a block of text containing Dropbox links to automatically parse and organize poster records.
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">District</Label>
-              <Input
-                value={filters.district}
-                onChange={(e) => {
-                  setPage(0);
-                  setFilters((f) => ({ ...f, district: e.target.value }));
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Poster type</Label>
-              <Input
-                placeholder="poster / notice / ..."
-                value={filters.poster_type}
-                onChange={(e) => {
-                  setPage(0);
-                  setFilters((f) => ({ ...f, poster_type: e.target.value }));
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Date from</Label>
-              <Input
-                type="date"
-                value={filters.date_from}
-                onChange={(e) => {
-                  setPage(0);
-                  setFilters((f) => ({ ...f, date_from: e.target.value }));
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Date to</Label>
-              <Input
-                type="date"
-                value={filters.date_to}
-                onChange={(e) => {
-                  setPage(0);
-                  setFilters((f) => ({ ...f, date_to: e.target.value }));
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Dropbox link</Label>
-              <Select
-                value={filters.has_dropbox}
-                onValueChange={(v) => {
-                  setPage(0);
-                  setFilters((f) => ({ ...f, has_dropbox: v as Filters["has_dropbox"] }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="yes">Has Dropbox</SelectItem>
-                  <SelectItem value="no">Missing Dropbox</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {selected.size > 0 && hasRole(user, "admin") && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="flex items-center justify-between p-3">
-            <p className="text-sm font-medium">{selected.size} selected</p>
-            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-              <Trash2 className="h-4 w-4" /> Delete selected
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleExportCsv}>
+              <Download className="h-4 w-4" /> Export CSV
             </Button>
-          </CardContent>
-        </Card>
-      )}
+            <Button variant="outline" loading={exporting} onClick={() => handleExportZip(currentViewZipPayload())}>
+              <Download className="h-4 w-4" /> Download ZIP
+            </Button>
+            {hasRole(user, "editor") && (
+              <>
+                <Button variant="outline" onClick={() => setEditTarget("new")}>
+                  <Plus className="h-4 w-4" /> Add manually
+                </Button>
+                <Button onClick={() => setPasteOpen(true)}>
+                  <ClipboardPaste className="h-4 w-4" /> Paste text
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16" />
-          ))}
-        </div>
-      ) : posters.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
-          <FolderKanban className="h-10 w-10" />
-          <p>No poster records yet. Paste a block of text to get started.</p>
-        </div>
-      ) : view === "table" ? (
+        {viewMode.kind === "folder" && (
+          <FolderBreadcrumbs crumbs={breadcrumbs} onNavigate={(folderId) => setViewMode({ kind: "folder", folderId })} />
+        )}
+
         <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10" />
-                  <TableHead>Title</TableHead>
-                  <TableHead>District / Estate</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Dropbox</TableHead>
-                  <TableHead className="w-16" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {posters.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      <p className="truncate font-medium">{p.poster_title || "(untitled)"}</p>
-                      {p.poster_type && (
-                        <Badge variant="outline" className="mt-1 capitalize">
-                          {p.poster_type}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {[p.district, p.estate].filter(Boolean).join(" · ") || "—"}
-                    </TableCell>
-                    <TableCell>{p.route_number || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.document_date ? new Date(p.document_date).toLocaleDateString() : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {hasRole(user, "editor") ? (
-                        <PosterStatusMenu poster={p} onChanged={load} />
-                      ) : (
-                        <PosterStatusBadge status={p.status} />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.dropbox_url ? (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
-                          </a>
-                        </Button>
-                      ) : (
-                        <Badge variant="secondary">Missing</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {hasRole(user, "editor") && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {hasRole(user, "admin") && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent className="flex flex-col gap-3 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Input
+                placeholder="Search district, estate, title, route, Dropbox URL..."
+                value={filters.q}
+                onChange={(e) => {
+                  setPage(0);
+                  setFilters((f) => ({ ...f, q: e.target.value }));
+                }}
+                className="sm:max-w-sm"
+              />
+              <div className="ml-auto flex gap-1 rounded-lg border border-border p-1">
+                <Button
+                  variant={view === "table" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setView("table")}
+                >
+                  <ListIcon className="h-4 w-4" /> Table
+                </Button>
+                <Button variant={view === "card" ? "secondary" : "ghost"} size="sm" onClick={() => setView("card")}>
+                  <LayoutGrid className="h-4 w-4" /> Cards
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">District</Label>
+                <Input
+                  value={filters.district}
+                  onChange={(e) => {
+                    setPage(0);
+                    setFilters((f) => ({ ...f, district: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Poster type</Label>
+                <Input
+                  placeholder="poster / notice / ..."
+                  value={filters.poster_type}
+                  onChange={(e) => {
+                    setPage(0);
+                    setFilters((f) => ({ ...f, poster_type: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Date from</Label>
+                <Input
+                  type="date"
+                  value={filters.date_from}
+                  onChange={(e) => {
+                    setPage(0);
+                    setFilters((f) => ({ ...f, date_from: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Date to</Label>
+                <Input
+                  type="date"
+                  value={filters.date_to}
+                  onChange={(e) => {
+                    setPage(0);
+                    setFilters((f) => ({ ...f, date_to: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Dropbox link</Label>
+                <Select
+                  value={filters.has_dropbox}
+                  onValueChange={(v) => {
+                    setPage(0);
+                    setFilters((f) => ({ ...f, has_dropbox: v as Filters["has_dropbox"] }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="yes">Has Dropbox</SelectItem>
+                    <SelectItem value="no">Missing Dropbox</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {posters.map((p) => (
-            <Card key={p.id}>
-              <CardContent className="flex flex-col gap-2 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
-                  {hasRole(user, "editor") ? (
-                    <PosterStatusMenu poster={p} onChanged={load} />
-                  ) : (
-                    <PosterStatusBadge status={p.status} />
-                  )}
-                </div>
-                <p className="line-clamp-2 font-medium">{p.poster_title || "(untitled)"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {[p.district, p.estate].filter(Boolean).join(" · ") || "No district/estate detected"}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {p.route_number && <Badge variant="secondary">Route {p.route_number}</Badge>}
-                  {p.poster_type && <Badge variant="outline" className="capitalize">{p.poster_type}</Badge>}
-                  {p.document_date && <Badge variant="outline">{new Date(p.document_date).toLocaleDateString()}</Badge>}
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                  {p.dropbox_url ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
-                      </a>
-                    </Button>
-                  ) : (
-                    <Badge variant="secondary">Missing Dropbox</Badge>
-                  )}
-                  <div className="flex gap-1">
-                    {hasRole(user, "editor") && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {hasRole(user, "admin") && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+
+        {selected.size > 0 && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+              <p className="text-sm font-medium">{selected.size} selected</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleExportZip({ ids: Array.from(selected) })} loading={exporting}>
+                  <Download className="h-4 w-4" /> Download ZIP
+                </Button>
+                {hasRole(user, "editor") && (
+                  <Button variant="outline" size="sm" onClick={() => setMovePickerOpen(true)}>
+                    <FolderInput className="h-4 w-4" /> Move to folder
+                  </Button>
+                )}
+                {hasRole(user, "admin") && (
+                  <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                    <Trash2 className="h-4 w-4" /> Delete selected
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-16" />
+            ))}
+          </div>
+        ) : posters.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+            <FolderKanban className="h-10 w-10" />
+            <p>{emptyStateMessage}</p>
+          </div>
+        ) : view === "table" ? (
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10" />
+                    <TableHead className="w-10" />
+                    <TableHead>Title</TableHead>
+                    <TableHead>District / Estate</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Dropbox</TableHead>
+                    <TableHead className="w-16" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {posters.map((p) => (
+                    <TableRow key={p.id} {...posterDragProps(p.id, selected)}>
+                      <TableCell>
+                        <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
+                      </TableCell>
+                      <TableCell>
+                        <StarToggle starred={starredIds.has(p.id)} onToggle={() => toggleStar(p.id)} />
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <p className="truncate font-medium">{p.poster_title || "(untitled)"}</p>
+                        {p.poster_type && (
+                          <Badge variant="outline" className="mt-1 capitalize">
+                            {p.poster_type}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {[p.district, p.estate].filter(Boolean).join(" · ") || "—"}
+                      </TableCell>
+                      <TableCell>{p.route_number || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {p.document_date ? new Date(p.document_date).toLocaleDateString() : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {hasRole(user, "editor") ? (
+                          <PosterStatusMenu poster={p} onChanged={load} />
+                        ) : (
+                          <PosterStatusBadge status={p.status} />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {p.dropbox_url ? (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
+                            </a>
+                          </Button>
+                        ) : (
+                          <Badge variant="secondary">Missing</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {hasRole(user, "editor") && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {hasRole(user, "admin") && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {posters.map((p) => (
+              <Card key={p.id} {...posterDragProps(p.id, selected)}>
+                <CardContent className="flex flex-col gap-2 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
+                      <StarToggle starred={starredIds.has(p.id)} onToggle={() => toggleStar(p.id)} />
+                    </div>
+                    {hasRole(user, "editor") ? (
+                      <PosterStatusMenu poster={p} onChanged={load} />
+                    ) : (
+                      <PosterStatusBadge status={p.status} />
                     )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {!loading && posters.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{total} total result{total === 1 ? "" : "s"}</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={(page + 1) * PAGE_SIZE >= total}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
+                  <p className="line-clamp-2 font-medium">{p.poster_title || "(untitled)"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[p.district, p.estate].filter(Boolean).join(" · ") || "No district/estate detected"}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.route_number && <Badge variant="secondary">Route {p.route_number}</Badge>}
+                    {p.poster_type && <Badge variant="outline" className="capitalize">{p.poster_type}</Badge>}
+                    {p.document_date && <Badge variant="outline">{new Date(p.document_date).toLocaleDateString()}</Badge>}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    {p.dropbox_url ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
+                        </a>
+                      </Button>
+                    ) : (
+                      <Badge variant="secondary">Missing Dropbox</Badge>
+                    )}
+                    <div className="flex gap-1">
+                      {hasRole(user, "editor") && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasRole(user, "admin") && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
-      )}
+        )}
 
-      <PasteImportDialog open={pasteOpen} onOpenChange={setPasteOpen} onImported={load} />
-      {editTarget && (
-        <PosterEditDialog
-          poster={editTarget === "new" ? null : editTarget}
-          onOpenChange={(open) => !open && setEditTarget(null)}
-          onSaved={load}
+        {!loading && posters.length > 0 && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{total} total result{total === 1 ? "" : "s"}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <PasteImportDialog
+          open={pasteOpen}
+          onOpenChange={setPasteOpen}
+          onImported={refreshAll}
+          currentFolderId={viewMode.kind === "folder" ? viewMode.folderId : null}
         />
-      )}
+        {editTarget && (
+          <PosterEditDialog
+            poster={editTarget === "new" ? null : editTarget}
+            onOpenChange={(open) => !open && setEditTarget(null)}
+            onSaved={refreshAll}
+            defaultFolderId={viewMode.kind === "folder" ? viewMode.folderId : null}
+          />
+        )}
+        <FolderPickerDialog
+          open={movePickerOpen}
+          onOpenChange={setMovePickerOpen}
+          onConfirm={handleBulkMove}
+          title={`Move ${selected.size} record(s)`}
+        />
+      </div>
     </div>
+  );
+}
+
+function SidebarQuickView({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors ${
+        active ? "bg-sidebar-accent text-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
+      }`}
+    >
+      <Icon className="h-4 w-4 shrink-0" /> {label}
+    </button>
   );
 }
 
@@ -507,10 +807,12 @@ function PasteImportDialog({
   open,
   onOpenChange,
   onImported,
+  currentFolderId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
+  currentFolderId: string | null;
 }) {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -518,7 +820,7 @@ function PasteImportDialog({
   async function handleImport() {
     setSubmitting(true);
     try {
-      const result = await postersApi.import(text);
+      const result = await postersApi.import(text, currentFolderId ?? undefined);
       toast.success(
         `Imported ${result.imported} record(s) - ${result.duplicates} duplicate(s), ${result.invalid} invalid link(s) skipped`
       );
@@ -540,7 +842,8 @@ function PasteImportDialog({
           <DialogDescription>
             Paste one or more records, each with a title line and a Dropbox link. District, estate, poster type,
             route number, date, language, and keywords are detected automatically - anything that can&apos;t be
-            confidently detected is left blank rather than guessed.
+            confidently detected is left blank rather than guessed. Records are auto-filed into a Year / Month /
+            District / Estate folder{currentFolderId ? " (overridden: filed into the folder you're currently browsing)" : ""}.
           </DialogDescription>
         </DialogHeader>
         <Textarea
@@ -564,10 +867,12 @@ function PosterEditDialog({
   poster,
   onOpenChange,
   onSaved,
+  defaultFolderId,
 }: {
   poster: PosterOut | null;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  defaultFolderId: string | null;
 }) {
   const [district, setDistrict] = useState(poster?.district ?? "");
   const [estate, setEstate] = useState(poster?.estate ?? "");
@@ -576,7 +881,21 @@ function PosterEditDialog({
   const [route, setRoute] = useState(poster?.route_number ?? "");
   const [dropboxUrl, setDropboxUrl] = useState(poster?.dropbox_url ?? "");
   const [notes, setNotes] = useState(poster?.notes ?? "");
+  const [folderId, setFolderId] = useState<string | null>(poster ? poster.folder_id : defaultFolderId);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [folderName, setFolderName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!folderId) {
+      setFolderName(null);
+      return;
+    }
+    foldersApi
+      .get(folderId)
+      .then((detail) => setFolderName(detail.folder.name))
+      .catch(() => setFolderName(null));
+  }, [folderId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -589,6 +908,7 @@ function PosterEditDialog({
       route_number: route || null,
       dropbox_url: dropboxUrl || null,
       notes: notes || null,
+      folder_id: folderId,
     };
     try {
       if (poster) {
@@ -646,12 +966,30 @@ function PosterEditDialog({
             <Label>Notes</Label>
             <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>Folder</Label>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 truncate rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground">
+                {folderName ?? "Auto-file by district/estate/date"}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={() => setFolderPickerOpen(true)}>
+                Change
+              </Button>
+            </div>
+          </div>
           <DialogFooter className="col-span-2">
             <Button type="submit" loading={submitting}>
               {poster ? "Save changes" : "Create"}
             </Button>
           </DialogFooter>
         </form>
+        <FolderPickerDialog
+          open={folderPickerOpen}
+          onOpenChange={setFolderPickerOpen}
+          onConfirm={setFolderId}
+          title="Choose a folder"
+          description="Overrides automatic Year / Month / District / Estate filing for this record."
+        />
       </DialogContent>
     </Dialog>
   );

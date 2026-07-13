@@ -110,6 +110,17 @@ class Settings(BaseSettings):
     backup_dir: Path = Path("./data/backups")
     backup_retention_days: int = 90
 
+    # ZIP export (app/storage/archive_zip.py, POST /api/posters/export/zip).
+    # Hard caps so an "export everything" request can't exhaust server
+    # memory/disk - a request over either limit is rejected outright
+    # (never silently truncated). Requests over zip_export_sync_threshold
+    # files are handed to a background ExportJob instead of blocking the
+    # HTTP worker for the whole build.
+    zip_export_sync_threshold: int = 200
+    zip_export_max_files: int = 5000
+    zip_export_max_total_bytes: int = 500 * 1024 * 1024  # 500 MB
+    export_jobs_dir: Path = Path("./data/export/jobs")
+
     @property
     def database_url(self) -> str:
         if self.database_backend == DatabaseBackend.POSTGRESQL:

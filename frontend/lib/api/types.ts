@@ -170,6 +170,7 @@ export interface PosterOut {
   workflow_steps: WorkflowStep[] | null;
   approval_status: "pending" | "approved" | "rejected";
   status: PosterStatusValue;
+  folder_id: string | null;
   ai_summary: string | null;
   ocr_text: string | null;
   attachments: Record<string, unknown>[] | null;
@@ -200,9 +201,15 @@ export interface PosterCreateRequest {
   keywords?: string[] | null;
   notes?: string | null;
   workflow_steps?: WorkflowStep[] | null;
+  folder_id?: string | null;
 }
 
 export type PosterUpdateRequest = Partial<PosterCreateRequest> & { approval_status?: string | null };
+
+export interface PosterBulkMoveRequest {
+  ids: string[];
+  folder_id: string | null;
+}
 
 export interface PosterImportResult {
   dropbox_url: string;
@@ -217,6 +224,92 @@ export interface PosterImportResponse {
   duplicates: number;
   invalid: number;
   results: PosterImportResult[];
+}
+
+// --- Folders: mirrors app/api/schemas.py's Folder* models - a generic,
+// resource-agnostic system (app/folders/service.py), not poster-specific.
+
+export interface FolderOut {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  path: string;
+  depth: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FolderStatsOut {
+  folder_id: string;
+  direct_subfolders: number;
+  direct_items: number;
+  total_subfolders: number;
+  total_items: number;
+}
+
+export interface FolderDetailOut {
+  folder: FolderOut;
+  breadcrumbs: FolderOut[];
+  stats: FolderStatsOut;
+  children: FolderOut[];
+}
+
+export interface FolderTreeNodeOut {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  depth: number;
+  direct_items: number;
+  total_items: number;
+  children: FolderTreeNodeOut[];
+}
+
+export interface FolderCreateRequest {
+  name: string;
+  parent_id?: string | null;
+}
+
+// --- Starred items (favorites) - reusable across resource types ----------
+
+export interface StarredItemOut {
+  id: string;
+  resource_type: string;
+  resource_id: string;
+  created_at: string;
+}
+
+// --- ZIP export (app/storage/archive_zip.py) ------------------------------
+
+export interface PosterZipExportRequest {
+  ids?: string[] | null;
+  folder_id?: string | null;
+  recursive?: boolean;
+  q?: string | null;
+  district?: string | null;
+  poster_type?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
+  has_dropbox?: boolean | null;
+}
+
+export interface ExportJobOut {
+  id: string;
+  resource_type: string;
+  status: "pending" | "running" | "completed" | "failed";
+  requested_by: string | null;
+  total_items: number;
+  included_items: number;
+  file_size_bytes: number | null;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface ZipExportAcceptedResponse {
+  job_id: string;
+  status: string;
+  total_items: number;
 }
 
 export class ApiError extends Error {

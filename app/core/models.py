@@ -14,6 +14,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -321,7 +322,97 @@ class Poster(Base):
     ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     attachments: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
+    # Nullable: a poster with no folder is simply "unfiled" (shown at the
+    # archive root), never an error state. See app/folders/service.py (the
+    # resource-agnostic folder engine) and app/folders/suggestions.py (the
+    # Year/Month/District/Estate auto-filing applied at import time).
+    folder_id: Mapped[str | None] = mapped_column(ForeignKey("folders.id"), nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class Folder(Base):
+    """A single folder in a nested hierarchy of unlimited depth. Deliberately
+    resource-agnostic - this table has no idea Posters (or, later,
+    Documents) exist; a resource opts in by carrying its own nullable
+    `folder_id` column (see Poster.folder_id above). See
+    app/folders/service.py for the create/rename/move/delete engine built
+    against this table, and app/folders/registry.py for how a resource
+    model plugs in for item-counting/deletion-safety purposes.
+
+    `path` is a materialized path of ancestor ids (this folder's own id
+    included), "/"-joined root-to-self, e.g. "root_id/year_id/month_id".
+    This makes both breadcrumb reconstruction (split on "/", one lookup)
+    and subtree queries (`path LIKE '{this.path}/%'` for every descendant)
+    single indexed queries instead of a recursive CTE - important since
+    "find every poster under this folder or any of its descendants" needs
+    to stay fast as the tree grows.
+    """
+
+    __tablename__ = "folders"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255))
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("folders.id"), nullable=True, index=True)
+    path: Mapped[str] = mapped_column(String(2048), index=True)
+    depth: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class StarredItem(Base):
+    """Per-user "favorite" flag on any resource, kept as a small side table
+    (rather than a `is_starred` column on every resource) so favoriting is
+    one reusable feature rather than a column this project would otherwise
+    need to re-add on Poster, then Document, then every future resource."""
+
+    __tablename__ = "starred_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "resource_type", "resource_id", name="uq_starred_item"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    resource_type: Mapped[str] = mapped_column(String(32), index=True)
+    resource_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExportJobStatus(str, enum.Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ExportJob(Base):
+    """Tracks a background ZIP export (see app/storage/archive_zip.py and
+    the POST /api/posters/export/zip route). Small/medium exports are
+    streamed back synchronously; anything past
+    Settings.zip_export_sync_threshold is handed to a background task and
+    tracked here instead, so a large "export the entire archive" request
+    can't tie up an HTTP worker for minutes. `resource_type` is stored (not
+    assumed to always be "poster") so this same table backs Document
+    exports later without a schema change."""
+
+    __tablename__ = "export_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    resource_type: Mapped[str] = mapped_column(String(32))
+    status: Mapped[ExportJobStatus] = mapped_column(
+        SAEnum(ExportJobStatus), default=ExportJobStatus.PENDING, index=True
+    )
+    requested_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    total_items: Mapped[int] = mapped_column(Integer, default=0)
+    included_items: Mapped[int] = mapped_column(Integer, default=0)
+    file_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

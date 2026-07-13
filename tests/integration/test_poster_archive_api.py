@@ -452,3 +452,23 @@ def test_non_admin_force_flag_is_ignored(bootstrap_admin):
         headers=editor_headers,
     )
     assert response.status_code == 409
+
+
+def test_list_posters_filters_by_status(bootstrap_admin):
+    client, headers = bootstrap_admin
+    p1 = _create_poster(client, headers, "https://www.dropbox.com/scl/fo/status-filter-1")
+    p2 = _create_poster(client, headers, "https://www.dropbox.com/scl/fo/status-filter-2")
+    client.post(f"/api/posters/{p2}/status", json={"status": "archived", "force": True}, headers=headers)
+
+    pending = client.get("/api/posters?status=pending_review", headers=headers).json()
+    archived = client.get("/api/posters?status=archived", headers=headers).json()
+
+    assert p1 in [r["id"] for r in pending["results"]]
+    assert p2 not in [r["id"] for r in pending["results"]]
+    assert p2 in [r["id"] for r in archived["results"]]
+
+
+def test_list_posters_unknown_status_filter_is_422(bootstrap_admin):
+    client, headers = bootstrap_admin
+    response = client.get("/api/posters?status=not_a_status", headers=headers)
+    assert response.status_code == 422

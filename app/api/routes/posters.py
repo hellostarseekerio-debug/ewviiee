@@ -20,8 +20,9 @@ import csv
 import io
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -29,6 +30,7 @@ from app.api.deps import get_current_user, get_rule_engine, require_role
 from app.api.rate_limit import limiter
 from app.api.schemas import (
     PosterBulkDeleteRequest,
+    PosterBulkMoveRequest,
     PosterCreateRequest,
     PosterImportRequest,
     PosterImportResponse,
@@ -37,17 +39,23 @@ from app.api.schemas import (
     PosterOut,
     PosterStatusChangeRequest,
     PosterUpdateRequest,
+    PosterZipExportRequest,
+    ZipExportAcceptedResponse,
 )
 from app.core.config import get_settings
-from app.core.database import get_db
+from app.core.database import get_db, session_scope
 from app.core.logging_config import record_audit
-from app.core.models import Poster, PosterStatus, UserRole
+from app.core.models import ExportJob, ExportJobStatus, Poster, PosterStatus, UserRole
 from app.core.security import role_rank
 from app.core.status_workflow import StatusTransitionError
+from app.folders.service import FolderNotFoundError, get_folder_or_raise, subtree_folder_ids
+from app.folders.suggestions import resolve_or_create_poster_folder
 from app.posters.parser import parse_poster_text
 from app.posters.status import approval_status_for, required_role_for_transition, validate_poster_transition
 from app.posters.validation import InvalidDropboxUrlError, assert_valid_dropbox_url
 from app.rules.engine import RuleEngine
+from app.storage.archive_zip import ExportableRecord, ZipExportLimitError, build_zip_export
+from app.storage.download_service import build_default_download_service
 
 router = APIRouter(prefix="/api/posters", tags=["posters"])
 
@@ -65,12 +73,25 @@ def import_posters(
     (see app/posters/parser.py) and bulk-inserts every valid, non-duplicate
     one in a single transaction - efficient for pastes of hundreds/
     thousands of records, and safe to re-paste the same text twice (every
-    repeat is reported back as a duplicate, not an error)."""
+    repeat is reported back as a duplicate, not an error).
+
+    Each record is auto-filed into a Year -> Month -> District -> Estate
+    folder (app/folders/suggestions.py), created on demand if it doesn't
+    exist yet - unless `payload.folder_id` is set, which files the whole
+    batch there instead."""
+    if payload.folder_id:
+        get_folder_or_raise(db, payload.folder_id)  # 404s cleanly rather than saving a dangling folder_id
+
     parsed_records = parse_poster_text(payload.text, rule_engine)
 
     results: list[PosterImportResult] = []
     to_insert: list[Poster] = []
     seen_in_batch: set[str] = set()
+    # Many records in one paste commonly share a date/district/estate combo
+    # (a batch of notices for the same estate on the same day) - cache the
+    # resolved folder per unique segment tuple so a 1,000-record paste
+    # doesn't repeat the same get-or-create folder lookup 1,000 times.
+    folder_cache: dict[tuple[str | None, str | None, str | None], str | None] = {}
 
     urls_in_batch = [p.dropbox_url for p in parsed_records]
     existing_urls: set[str] = set()
@@ -94,6 +115,26 @@ def import_posters(
             continue
 
         seen_in_batch.add(parsed.dropbox_url)
+
+        if payload.folder_id:
+            folder_id = payload.folder_id
+        else:
+            cache_key = (
+                parsed.district,
+                parsed.estate,
+                parsed.document_date.strftime("%Y-%m") if parsed.document_date else None,
+            )
+            if cache_key not in folder_cache:
+                folder_cache[cache_key] = resolve_or_create_poster_folder(
+                    db,
+                    folder_id_override=None,
+                    district=parsed.district,
+                    estate=parsed.estate,
+                    document_date=parsed.document_date,
+                    created_by=current_user.username,
+                )
+            folder_id = folder_cache[cache_key]
+
         poster = Poster(
             district=parsed.district,
             estate=parsed.estate,
@@ -105,6 +146,7 @@ def import_posters(
             language=parsed.language,
             keywords=parsed.keywords or None,
             source_text=parsed.source_text,
+            folder_id=folder_id,
         )
         to_insert.append(poster)
         results.append(PosterImportResult(dropbox_url=parsed.dropbox_url, status="imported"))
@@ -142,6 +184,11 @@ def _apply_filters(
     date_from: datetime | None,
     date_to: datetime | None,
     has_dropbox: bool | None,
+    *,
+    db: Session | None = None,
+    folder_id: str | None = None,
+    recursive: bool = True,
+    poster_status: str | None = None,
 ):
     if district:
         query = query.filter(Poster.district.ilike(f"%{district}%"))
@@ -155,6 +202,17 @@ def _apply_filters(
         query = query.filter(Poster.dropbox_url.isnot(None))
     elif has_dropbox is False:
         query = query.filter(Poster.dropbox_url.is_(None))
+    if folder_id:
+        assert db is not None, "db is required when filtering by folder_id"
+        folder = get_folder_or_raise(db, folder_id)
+        folder_ids = subtree_folder_ids(db, folder, include_self=True) if recursive else [folder.id]
+        query = query.filter(Poster.folder_id.in_(folder_ids))
+    if poster_status:
+        try:
+            query = query.filter(Poster.status == PosterStatus(poster_status))
+        except ValueError:
+            valid = ", ".join(s.value for s in PosterStatus)
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown status '{poster_status}' (valid: {valid})")
     return query
 
 
@@ -166,6 +224,9 @@ def search_posters(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     has_dropbox: bool | None = None,
+    folder_id: str | None = Query(default=None, description="Filter to one folder (and its subfolders unless recursive=false)"),
+    recursive: bool = Query(default=True),
+    poster_status: str | None = Query(default=None, alias="status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -184,7 +245,13 @@ def search_posters(
                 Poster.notes.ilike(like),
             )
         )
-    query = _apply_filters(query, district, poster_type, date_from, date_to, has_dropbox)
+    try:
+        query = _apply_filters(
+            query, district, poster_type, date_from, date_to, has_dropbox,
+            db=db, folder_id=folder_id, recursive=recursive, poster_status=poster_status,
+        )
+    except FolderNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     total = query.count()
     results = query.order_by(Poster.created_at.desc()).offset(skip).limit(limit).all()
     return PosterListResponse(total=total, results=results)
@@ -197,10 +264,18 @@ def export_posters_csv(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     has_dropbox: bool | None = None,
+    folder_id: str | None = Query(default=None),
+    recursive: bool = Query(default=True),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    query = _apply_filters(db.query(Poster), district, poster_type, date_from, date_to, has_dropbox)
+    try:
+        query = _apply_filters(
+            db.query(Poster), district, poster_type, date_from, date_to, has_dropbox,
+            db=db, folder_id=folder_id, recursive=recursive,
+        )
+    except FolderNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     rows = query.order_by(Poster.created_at.desc()).all()
 
     buffer = io.StringIO()
@@ -242,6 +317,159 @@ def export_posters_csv(
     )
 
 
+def _resolve_export_posters(db: Session, payload: PosterZipExportRequest) -> list[Poster]:
+    """Selection precedence: explicit `ids` (selected files) > `folder_id`
+    (current folder, optionally recursive) > the plain filter fields
+    (search results) > no filters at all (the entire archive)."""
+    if payload.ids:
+        return db.query(Poster).filter(Poster.id.in_(payload.ids)).all()
+
+    query = db.query(Poster)
+    if payload.q:
+        like = f"%{payload.q}%"
+        query = query.filter(
+            or_(
+                Poster.poster_title.ilike(like),
+                Poster.district.ilike(like),
+                Poster.estate.ilike(like),
+                Poster.route_number.ilike(like),
+                Poster.dropbox_url.ilike(like),
+                Poster.notes.ilike(like),
+            )
+        )
+    query = _apply_filters(
+        query, payload.district, payload.poster_type, payload.date_from, payload.date_to, payload.has_dropbox,
+        db=db, folder_id=payload.folder_id, recursive=payload.recursive,
+    )
+    return query.order_by(Poster.created_at.desc()).all()
+
+
+def _posters_to_exportable(posters: list[Poster]) -> list[ExportableRecord]:
+    return [
+        ExportableRecord(
+            id=p.id,
+            title=p.poster_title,
+            file_reference=p.dropbox_url,
+            folder_id=p.folder_id,
+            metadata={
+                "district": p.district or "",
+                "estate": p.estate or "",
+                "poster_type": p.poster_type or "",
+                "route_number": p.route_number or "",
+                "document_date": p.document_date.isoformat() if p.document_date else "",
+                "status": p.status.value,
+                "dropbox_url": p.dropbox_url or "",
+            },
+        )
+        for p in posters
+    ]
+
+
+def _run_zip_export_job(job_id: str, poster_ids: list[str]) -> None:
+    """Background counterpart of the synchronous path below - runs after
+    the HTTP response has already gone out (202 Accepted + job id), in its
+    own DB session since the request-scoped one is closed by then. Never
+    raises out of this function: any failure is recorded on the job row so
+    the client's poll sees a FAILED status with a reason, not a silently
+    stuck PENDING job."""
+    settings = get_settings()
+    with session_scope() as db:
+        job = db.get(ExportJob, job_id)
+        if job is None:
+            return
+        job.status = ExportJobStatus.RUNNING
+        db.commit()
+        try:
+            posters = db.query(Poster).filter(Poster.id.in_(poster_ids)).all()
+            records = _posters_to_exportable(posters)
+            download_service = build_default_download_service(settings)
+            result = build_zip_export(
+                db, records, download_service=download_service,
+                max_files=settings.zip_export_max_files, max_total_bytes=settings.zip_export_max_total_bytes,
+                archive_label="Poster Archive",
+            )
+            settings.export_jobs_dir.mkdir(parents=True, exist_ok=True)
+            file_path = settings.export_jobs_dir / f"{job_id}.zip"
+            file_path.write_bytes(result.buffer)
+            job.status = ExportJobStatus.COMPLETED
+            job.included_items = result.included
+            job.file_path = str(file_path)
+            job.file_size_bytes = len(result.buffer)
+            job.completed_at = datetime.utcnow()
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 - a background job must never crash silently stuck
+            job.status = ExportJobStatus.FAILED
+            job.error_message = str(exc)[:2000]
+            job.completed_at = datetime.utcnow()
+            db.commit()
+
+
+@router.post("/export/zip")
+def export_posters_zip(
+    payload: PosterZipExportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Supports all four required export shapes via `payload` (see
+    _resolve_export_posters): selected files (`ids`), the current folder
+    (`folder_id` [+ `recursive`]), search results (the filter fields), or
+    the entire archive (no fields at all). Small/medium exports stream
+    back immediately; anything over `zip_export_sync_threshold` is handed
+    to a background ExportJob instead, so a huge "export everything"
+    request can't tie up an HTTP worker for minutes - see
+    docs/ARCHITECTURE_REVIEW_2026-07.md's risk #1 on this exact hazard."""
+    settings = get_settings()
+    try:
+        posters = _resolve_export_posters(db, payload)
+    except FolderNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    if not posters:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No matching poster records to export")
+    if len(posters) > settings.zip_export_max_files:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Export exceeds the {settings.zip_export_max_files}-file limit ({len(posters)} requested)",
+        )
+
+    if len(posters) <= settings.zip_export_sync_threshold:
+        download_service = build_default_download_service(settings)
+        try:
+            result = build_zip_export(
+                db, _posters_to_exportable(posters), download_service=download_service,
+                max_files=settings.zip_export_max_files, max_total_bytes=settings.zip_export_max_total_bytes,
+                archive_label="Poster Archive",
+            )
+        except ZipExportLimitError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        record_audit(
+            actor=current_user.username, action="poster_export_zip",
+            detail={"requested": len(posters), "included": result.included, "background": False},
+        )
+        filename = f"posters_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.zip"
+        return StreamingResponse(
+            iter([result.buffer]), media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    job = ExportJob(
+        resource_type="poster", status=ExportJobStatus.PENDING,
+        requested_by=current_user.username, total_items=len(posters),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    background_tasks.add_task(_run_zip_export_job, job.id, [p.id for p in posters])
+    record_audit(
+        actor=current_user.username, action="poster_export_zip_queued",
+        resource_type="export_job", resource_id=job.id, detail={"requested": len(posters)},
+    )
+    accepted = ZipExportAcceptedResponse(job_id=job.id, status=job.status.value, total_items=job.total_items)
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=jsonable_encoder(accepted))
+
+
 @router.post("/bulk-delete", status_code=status.HTTP_200_OK)
 def bulk_delete_posters(
     payload: PosterBulkDeleteRequest,
@@ -257,6 +485,33 @@ def bulk_delete_posters(
     return {"deleted": deleted}
 
 
+@router.post("/bulk-move", status_code=status.HTTP_200_OK)
+def bulk_move_posters(
+    payload: PosterBulkMoveRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.EDITOR)),
+):
+    """Moves every listed poster to `folder_id` in one statement -
+    `folder_id: null` moves them to the root (unfiled)."""
+    if payload.folder_id:
+        try:
+            get_folder_or_raise(db, payload.folder_id)
+        except FolderNotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    moved = (
+        db.query(Poster)
+        .filter(Poster.id.in_(payload.ids))
+        .update({"folder_id": payload.folder_id}, synchronize_session=False)
+    )
+    db.commit()
+    record_audit(
+        actor=current_user.username, action="poster_bulk_moved",
+        detail={"requested": len(payload.ids), "moved": moved, "folder_id": payload.folder_id},
+    )
+    return {"moved": moved}
+
+
 @router.get("", response_model=PosterListResponse)
 def list_posters(
     district: str | None = None,
@@ -264,6 +519,9 @@ def list_posters(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     has_dropbox: bool | None = None,
+    folder_id: str | None = Query(default=None, description="Filter to one folder (and its subfolders unless recursive=false)"),
+    recursive: bool = Query(default=True),
+    poster_status: str | None = Query(default=None, alias="status"),
     sort_by: str = Query("created_at", pattern="^(created_at|updated_at|document_date|district|poster_title)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     skip: int = Query(0, ge=0),
@@ -271,7 +529,13 @@ def list_posters(
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    query = _apply_filters(db.query(Poster), district, poster_type, date_from, date_to, has_dropbox)
+    try:
+        query = _apply_filters(
+            db.query(Poster), district, poster_type, date_from, date_to, has_dropbox,
+            db=db, folder_id=folder_id, recursive=recursive, poster_status=poster_status,
+        )
+    except FolderNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     total = query.count()
     sort_column = getattr(Poster, sort_by)
     sort_column = sort_column.desc() if sort_dir == "desc" else sort_column.asc()
@@ -298,9 +562,23 @@ def create_poster(
         if existing:
             raise HTTPException(status.HTTP_409_CONFLICT, "A poster record with this Dropbox URL already exists")
 
-    poster = Poster(**payload.model_dump(exclude={"workflow_steps"}))
+    if payload.folder_id:
+        try:
+            get_folder_or_raise(db, payload.folder_id)
+        except FolderNotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    poster = Poster(**payload.model_dump(exclude={"workflow_steps", "folder_id"}))
     if payload.workflow_steps is not None:
         poster.workflow_steps = [step.model_dump() for step in payload.workflow_steps]
+    poster.folder_id = resolve_or_create_poster_folder(
+        db,
+        folder_id_override=payload.folder_id,
+        district=payload.district,
+        estate=payload.estate,
+        document_date=payload.document_date,
+        created_by=current_user.username,
+    )
     db.add(poster)
     db.commit()
     record_audit(
@@ -331,6 +609,12 @@ def update_poster(
         )
         if existing:
             raise HTTPException(status.HTTP_409_CONFLICT, "A poster record with this Dropbox URL already exists")
+
+    if updates.get("folder_id"):
+        try:
+            get_folder_or_raise(db, updates["folder_id"])
+        except FolderNotFoundError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
     for key, value in updates.items():
         setattr(poster, key, value)

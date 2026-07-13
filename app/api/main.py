@@ -15,10 +15,13 @@ from app.api.routes import (
     auth,
     dashboard,
     documents,
+    exports,
+    folders,
     plugins,
     posters,
     search,
     settings as settings_routes,
+    starred,
     workflows,
 )
 from app.core.config import get_settings
@@ -115,6 +118,9 @@ def create_app() -> FastAPI:
     app.include_router(settings_routes.router)
     app.include_router(dashboard.router)
     app.include_router(posters.router)
+    app.include_router(folders.router)
+    app.include_router(exports.router)
+    app.include_router(starred.router)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

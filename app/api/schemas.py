@@ -198,6 +198,7 @@ class PosterOut(BaseModel):
     workflow_steps: list[WorkflowStep] | None
     approval_status: str
     status: str
+    folder_id: str | None
     ai_summary: str | None
     ocr_text: str | None
     attachments: list[dict] | None
@@ -228,6 +229,10 @@ class PosterCreateRequest(BaseModel):
     keywords: list[str] | None = None
     notes: str | None = None
     workflow_steps: list[WorkflowStep] | None = None
+    # Explicit destination overrides the Year/Month/District/Estate
+    # auto-suggestion (app/folders/suggestions.py) - omit to let the
+    # system file it automatically based on district/estate/document_date.
+    folder_id: str | None = None
 
     @field_validator("dropbox_url")
     @classmethod
@@ -253,6 +258,7 @@ class PosterUpdateRequest(BaseModel):
     notes: str | None = None
     workflow_steps: list[WorkflowStep] | None = None
     approval_status: str | None = None
+    folder_id: str | None = None
 
     @field_validator("dropbox_url")
     @classmethod
@@ -279,6 +285,11 @@ class PosterStatusChangeRequest(BaseModel):
 
 class PosterImportRequest(BaseModel):
     text: str = Field(..., min_length=1)
+    # Applies to every record in this paste, overriding the per-record
+    # Year/Month/District/Estate auto-suggestion - e.g. "file this whole
+    # batch under a folder I already picked" instead of auto-filing each
+    # one by its own parsed district/estate/date.
+    folder_id: str | None = None
 
 
 class PosterImportResult(BaseModel):
@@ -298,3 +309,121 @@ class PosterImportResponse(BaseModel):
 
 class PosterBulkDeleteRequest(BaseModel):
     ids: list[str] = Field(..., min_length=1, max_length=1000)
+
+
+class PosterBulkMoveRequest(BaseModel):
+    ids: list[str] = Field(..., min_length=1, max_length=1000)
+    folder_id: str | None = None  # None = move to root (unfiled)
+
+
+# --- Folders: app/folders/service.py - generic, not poster-specific ------
+
+
+class FolderOut(BaseModel):
+    id: str
+    name: str
+    parent_id: str | None
+    path: str
+    depth: int
+    created_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FolderCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    parent_id: str | None = None
+
+
+class FolderRenameRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+
+
+class FolderMoveRequest(BaseModel):
+    parent_id: str | None = None
+
+
+class FolderStatsOut(BaseModel):
+    folder_id: str
+    direct_subfolders: int
+    direct_items: int
+    total_subfolders: int
+    total_items: int
+
+
+class FolderTreeNodeOut(BaseModel):
+    id: str
+    name: str
+    parent_id: str | None
+    depth: int
+    direct_items: int
+    total_items: int
+    children: list["FolderTreeNodeOut"]
+
+
+class FolderDetailOut(BaseModel):
+    folder: FolderOut
+    breadcrumbs: list[FolderOut]
+    stats: FolderStatsOut
+    children: list[FolderOut]
+
+
+# --- Starred items (favorites) - reusable across resource types ----------
+
+
+class StarredItemOut(BaseModel):
+    id: str
+    resource_type: str
+    resource_id: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class StarRequest(BaseModel):
+    resource_type: str
+    resource_id: str
+
+
+# --- ZIP export (app/storage/archive_zip.py) ------------------------------
+
+
+class PosterZipExportRequest(BaseModel):
+    """Selects which posters to export - see app/api/routes/posters.py for
+    how these are prioritized: `ids` (selected files) takes precedence,
+    then `folder_id` (current folder, optionally recursive), then the
+    plain filter fields (search results); no fields at all means the
+    entire archive."""
+
+    ids: list[str] | None = None
+    folder_id: str | None = None
+    recursive: bool = True
+    q: str | None = None
+    district: str | None = None
+    poster_type: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    has_dropbox: bool | None = None
+
+
+class ExportJobOut(BaseModel):
+    id: str
+    resource_type: str
+    status: str
+    requested_by: str | None
+    total_items: int
+    included_items: int
+    file_size_bytes: int | None
+    error_message: str | None
+    created_at: datetime
+    completed_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class ZipExportAcceptedResponse(BaseModel):
+    job_id: str
+    status: str
+    total_items: int

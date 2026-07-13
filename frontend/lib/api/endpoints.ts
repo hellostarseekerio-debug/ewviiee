@@ -1,17 +1,26 @@
 import { apiFetch, API_BASE_URL, getToken } from "./client";
+import { ApiError } from "./types";
 import type {
   DashboardStats,
   DocumentOut,
   DocumentVersionOut,
+  ExportJobOut,
+  FolderCreateRequest,
+  FolderDetailOut,
+  FolderOut,
+  FolderTreeNodeOut,
   MFASetupResponse,
   PluginOut,
+  PosterBulkMoveRequest,
   PosterCreateRequest,
   PosterImportResponse,
   PosterListResponse,
   PosterOut,
   PosterStatusChangeRequest,
   PosterUpdateRequest,
+  PosterZipExportRequest,
   SearchResponse,
+  StarredItemOut,
   SystemSettings,
   TokenResponse,
   UserCreateRequest,
@@ -20,6 +29,7 @@ import type {
   WorkflowRunRequest,
   WorkflowRunResponse,
   WorkflowSummary,
+  ZipExportAcceptedResponse,
 } from "./types";
 
 // --- Auth: app/api/routes/auth.py ------------------------------------------
@@ -134,11 +144,21 @@ export interface PosterFilters {
 }
 
 export const postersApi = {
-  import: (text: string) =>
-    apiFetch<PosterImportResponse>("/api/posters/import", { method: "POST", body: { text } }),
-  list: (params: PosterFilters & { skip?: number; limit?: number; sort_by?: string; sort_dir?: string }) =>
-    apiFetch<PosterListResponse>("/api/posters", { query: params as Record<string, string | number | boolean | undefined> }),
-  search: (params: PosterFilters & { q?: string; skip?: number; limit?: number }) =>
+  import: (text: string, folder_id?: string | null) =>
+    apiFetch<PosterImportResponse>("/api/posters/import", { method: "POST", body: { text, folder_id } }),
+  list: (
+    params: PosterFilters & {
+      skip?: number;
+      limit?: number;
+      sort_by?: string;
+      sort_dir?: string;
+      folder_id?: string;
+      recursive?: boolean;
+    }
+  ) => apiFetch<PosterListResponse>("/api/posters", { query: params as Record<string, string | number | boolean | undefined> }),
+  search: (
+    params: PosterFilters & { q?: string; skip?: number; limit?: number; folder_id?: string; recursive?: boolean }
+  ) =>
     apiFetch<PosterListResponse>("/api/posters/search", { query: params as Record<string, string | number | boolean | undefined> }),
   get: (id: string) => apiFetch<PosterOut>(`/api/posters/${id}`),
   create: (payload: PosterCreateRequest) => apiFetch<PosterOut>("/api/posters", { method: "POST", body: payload }),
@@ -149,6 +169,8 @@ export const postersApi = {
   remove: (id: string) => apiFetch<void>(`/api/posters/${id}`, { method: "DELETE" }),
   bulkDelete: (ids: string[]) =>
     apiFetch<{ deleted: number }>("/api/posters/bulk-delete", { method: "POST", body: { ids } }),
+  bulkMove: (payload: PosterBulkMoveRequest) =>
+    apiFetch<{ moved: number }>("/api/posters/bulk-move", { method: "POST", body: payload }),
   exportCsvUrl: (filters: PosterFilters) => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) {
@@ -169,6 +191,92 @@ export const postersApi = {
     a.click();
     window.URL.revokeObjectURL(url);
   },
+  // Either downloads the ZIP directly (small/medium exports, streamed back
+  // synchronously) or returns a queued background job (large exports) -
+  // see POST /api/posters/export/zip's docstring for the size threshold.
+  exportZip: async (
+    payload: PosterZipExportRequest
+  ): Promise<{ kind: "downloaded" } | { kind: "queued"; job: ZipExportAcceptedResponse }> => {
+    const response = await fetch(`${API_BASE_URL}/api/posters/export/zip`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      let message = response.statusText;
+      try {
+        const parsed = await response.json();
+        if (typeof parsed.detail === "string") message = parsed.detail;
+      } catch {
+        /* fall through to statusText */
+      }
+      throw new ApiError(response.status, message || `Export failed (${response.status})`);
+    }
+    if (response.status === 202) {
+      const job = (await response.json()) as ZipExportAcceptedResponse;
+      return { kind: "queued", job };
+    }
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match ? match[1] : "posters_export.zip";
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    return { kind: "downloaded" };
+  },
+};
+
+// --- Export jobs: app/api/routes/exports.py (background ZIP polling) -------
+export const exportJobsApi = {
+  get: (jobId: string) => apiFetch<ExportJobOut>(`/api/export-jobs/${jobId}`),
+  downloadUrl: (jobId: string) => `${API_BASE_URL}/api/export-jobs/${jobId}/download`,
+  download: async (jobId: string, filename?: string) => {
+    const response = await fetch(exportJobsApi.downloadUrl(jobId), {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!response.ok) throw new ApiError(response.status, "Download failed");
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename ?? `export_${jobId}.zip`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+};
+
+// --- Folders: app/api/routes/folders.py (generic, not poster-specific) -----
+export const foldersApi = {
+  tree: (resourceType: string = "poster") =>
+    apiFetch<FolderTreeNodeOut[]>("/api/folders/tree", { query: { resource_type: resourceType } }),
+  children: (parentId?: string | null) =>
+    apiFetch<FolderOut[]>("/api/folders", { query: parentId ? { parent_id: parentId } : {} }),
+  get: (folderId: string, resourceType: string = "poster") =>
+    apiFetch<FolderDetailOut>(`/api/folders/${folderId}`, { query: { resource_type: resourceType } }),
+  create: (payload: FolderCreateRequest) => apiFetch<FolderOut>("/api/folders", { method: "POST", body: payload }),
+  rename: (folderId: string, name: string) =>
+    apiFetch<FolderOut>(`/api/folders/${folderId}`, { method: "PATCH", body: { name } }),
+  move: (folderId: string, parentId: string | null) =>
+    apiFetch<FolderOut>(`/api/folders/${folderId}/move`, { method: "POST", body: { parent_id: parentId } }),
+  remove: (folderId: string, options?: { resourceType?: string; recursive?: boolean }) =>
+    apiFetch<void>(`/api/folders/${folderId}`, {
+      method: "DELETE",
+      query: { resource_type: options?.resourceType ?? "poster", recursive: options?.recursive ?? false },
+    }),
+};
+
+// --- Starred (favorites): app/api/routes/starred.py -------------------------
+export const starredApi = {
+  list: (resourceType?: string) =>
+    apiFetch<StarredItemOut[]>("/api/starred", { query: resourceType ? { resource_type: resourceType } : {} }),
+  star: (resourceType: string, resourceId: string) =>
+    apiFetch<StarredItemOut>("/api/starred", { method: "POST", body: { resource_type: resourceType, resource_id: resourceId } }),
+  unstar: (resourceType: string, resourceId: string) =>
+    apiFetch<void>(`/api/starred/${resourceType}/${resourceId}`, { method: "DELETE" }),
 };
 
 // XHR-based upload so we can report real progress - fetch() has no
