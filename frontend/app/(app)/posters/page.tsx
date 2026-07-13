@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { postersApi } from "@/lib/api/endpoints";
 import type { PosterFilters } from "@/lib/api/endpoints";
-import type { PosterOut } from "@/lib/api/types";
+import type { PosterOut, PosterStatusValue } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/types";
 import { useAuth, hasRole } from "@/lib/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +36,76 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ApprovalBadge } from "@/components/documents/status-badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PosterStatusBadge } from "@/components/documents/status-badge";
+import { ChevronDown } from "lucide-react";
+
+// Mirrors app/posters/status.py's POSTER_STATUS_TRANSITIONS - purely to
+// decide which options to *offer* in the menu below. The server is the
+// real authority: it re-validates every transition and role requirement
+// on every request regardless of what this list suggests.
+const POSTER_NEXT_STATUSES: Record<PosterStatusValue, PosterStatusValue[]> = {
+  draft: ["pending_review"],
+  pending_review: ["approved", "rejected", "draft"],
+  approved: ["published", "pending_review"],
+  published: ["archived"],
+  rejected: ["draft", "pending_review"],
+  archived: [],
+};
+
+const POSTER_STATUS_LABEL: Record<PosterStatusValue, string> = {
+  draft: "Draft",
+  pending_review: "Pending review",
+  approved: "Approved",
+  published: "Published",
+  rejected: "Rejected",
+  archived: "Archived",
+};
+
+function PosterStatusMenu({ poster, onChanged }: { poster: PosterOut; onChanged: () => void }) {
+  const nextStatuses = POSTER_NEXT_STATUSES[poster.status];
+
+  async function handleChange(next: PosterStatusValue) {
+    try {
+      await postersApi.changeStatus(poster.id, { status: next });
+      toast.success(`Status changed to ${POSTER_STATUS_LABEL[next]}`);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Status change failed");
+    }
+  }
+
+  if (nextStatuses.length === 0) {
+    return <PosterStatusBadge status={poster.status} />;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-auto gap-1 p-0 hover:bg-transparent">
+          <PosterStatusBadge status={poster.status} />
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Change status</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {nextStatuses.map((next) => (
+          <DropdownMenuItem key={next} onClick={() => handleChange(next)}>
+            {POSTER_STATUS_LABEL[next]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const PAGE_SIZE = 24;
 
@@ -315,7 +384,11 @@ export default function PosterArchivePage() {
                       {p.document_date ? new Date(p.document_date).toLocaleDateString() : "—"}
                     </TableCell>
                     <TableCell>
-                      <ApprovalBadge status={p.approval_status} />
+                      {hasRole(user, "editor") ? (
+                        <PosterStatusMenu poster={p} onChanged={load} />
+                      ) : (
+                        <PosterStatusBadge status={p.status} />
+                      )}
                     </TableCell>
                     <TableCell>
                       {p.dropbox_url ? (
@@ -355,7 +428,11 @@ export default function PosterArchivePage() {
               <CardContent className="flex flex-col gap-2 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
-                  <ApprovalBadge status={p.approval_status} />
+                  {hasRole(user, "editor") ? (
+                    <PosterStatusMenu poster={p} onChanged={load} />
+                  ) : (
+                    <PosterStatusBadge status={p.status} />
+                  )}
                 </div>
                 <p className="line-clamp-2 font-medium">{p.poster_title || "(untitled)"}</p>
                 <p className="text-xs text-muted-foreground">

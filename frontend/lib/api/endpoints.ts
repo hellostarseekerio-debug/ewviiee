@@ -9,6 +9,7 @@ import type {
   PosterImportResponse,
   PosterListResponse,
   PosterOut,
+  PosterStatusChangeRequest,
   PosterUpdateRequest,
   SearchResponse,
   SystemSettings,
@@ -143,6 +144,8 @@ export const postersApi = {
   create: (payload: PosterCreateRequest) => apiFetch<PosterOut>("/api/posters", { method: "POST", body: payload }),
   update: (id: string, payload: PosterUpdateRequest) =>
     apiFetch<PosterOut>(`/api/posters/${id}`, { method: "PATCH", body: payload }),
+  changeStatus: (id: string, payload: PosterStatusChangeRequest) =>
+    apiFetch<PosterOut>(`/api/posters/${id}/status`, { method: "POST", body: payload }),
   remove: (id: string) => apiFetch<void>(`/api/posters/${id}`, { method: "DELETE" }),
   bulkDelete: (ids: string[]) =>
     apiFetch<{ deleted: number }>("/api/posters/bulk-delete", { method: "POST", body: { ids } }),

@@ -145,6 +145,16 @@ export interface WorkflowStep {
   detail?: string | null;
 }
 
+// Mirrors app.core.models.PosterStatus - see app/posters/status.py for the
+// allowed-transition graph and role rules enforced server-side.
+export type PosterStatusValue =
+  | "draft"
+  | "pending_review"
+  | "approved"
+  | "published"
+  | "rejected"
+  | "archived";
+
 export interface PosterOut {
   id: string;
   district: string | null;
@@ -159,11 +169,18 @@ export interface PosterOut {
   notes: string | null;
   workflow_steps: WorkflowStep[] | null;
   approval_status: "pending" | "approved" | "rejected";
+  status: PosterStatusValue;
   ai_summary: string | null;
   ocr_text: string | null;
   attachments: Record<string, unknown>[] | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PosterStatusChangeRequest {
+  status: PosterStatusValue;
+  notes?: string | null;
+  force?: boolean;
 }
 
 export interface PosterListResponse {

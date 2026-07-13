@@ -197,6 +197,7 @@ class PosterOut(BaseModel):
     notes: str | None
     workflow_steps: list[WorkflowStep] | None
     approval_status: str
+    status: str
     ai_summary: str | None
     ocr_text: str | None
     attachments: list[dict] | None
@@ -262,6 +263,18 @@ class PosterUpdateRequest(BaseModel):
 
         assert_valid_dropbox_url(value)
         return value.strip()
+
+
+class PosterStatusChangeRequest(BaseModel):
+    """Moves a poster through its status lifecycle (see
+    app/posters/status.py for the allowed-transition graph). Deliberately a
+    dedicated endpoint rather than folded into PATCH /api/posters/{id} -
+    the transition graph and role requirements need to be enforced
+    consistently, which a generic field-by-field update can't do safely."""
+
+    status: str
+    notes: str | None = Field(default=None, max_length=2000)
+    force: bool = False
 
 
 class PosterImportRequest(BaseModel):

@@ -1,8 +1,12 @@
 """Poster Archive endpoints - paste-text Dropbox link management.
 
 Security: import/create/edit require Editor+, delete requires Admin+ (same
-role thresholds used for the Documents resource). Every mutating action is
-recorded in the audit log, matching the rest of the API.
+role thresholds used for the Documents resource). Status changes require
+Reviewer+ for the approve/reject verdicts themselves, and Editor+ for
+every other transition (draft->pending_review, publish, archive, resubmit)
+- see app/posters/status.py for the full transition graph and role rules.
+Every mutating action is recorded in the audit log, matching the rest of
+the API.
 """
 # Deliberately no `from __future__ import annotations` here: every route
 # below decorated with `@limiter.limit(...)` is wrapped by slowapi before
@@ -31,13 +35,17 @@ from app.api.schemas import (
     PosterImportResult,
     PosterListResponse,
     PosterOut,
+    PosterStatusChangeRequest,
     PosterUpdateRequest,
 )
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging_config import record_audit
-from app.core.models import Poster, UserRole
+from app.core.models import Poster, PosterStatus, UserRole
+from app.core.security import role_rank
+from app.core.status_workflow import StatusTransitionError
 from app.posters.parser import parse_poster_text
+from app.posters.status import approval_status_for, required_role_for_transition, validate_poster_transition
 from app.posters.validation import InvalidDropboxUrlError, assert_valid_dropbox_url
 from app.rules.engine import RuleEngine
 
@@ -338,6 +346,66 @@ def update_poster(
     record_audit(
         actor=current_user.username, action="poster_updated",
         resource_type="poster", resource_id=poster.id, detail={"fields": list(updates.keys())},
+    )
+    return poster
+
+
+@router.post("/{poster_id}/status", response_model=PosterOut)
+def change_poster_status(
+    poster_id: str,
+    payload: PosterStatusChangeRequest,
+    db: Session = Depends(get_db),
+    # REVIEWER is the lowest bar among all valid transitions (approve/
+    # reject) - _ROLE_RANK ranks Reviewer below Editor, so this reads as
+    # "Reviewer, Editor, or Admin", matching Document's approve/reject
+    # convention. Transitions that need more than Reviewer (everything
+    # except approve/reject) are checked explicitly below.
+    current_user=Depends(require_role(UserRole.REVIEWER)),
+):
+    """Moves a poster through its status lifecycle (draft -> pending_review
+    -> approved -> published -> archived, with rejected/resubmit branches -
+    see app/posters/status.py). Only an Admin's `force: true` can skip the
+    transition graph, e.g. to correct a mistake; the per-transition role
+    requirement still applies even when forcing."""
+    poster = db.get(Poster, poster_id)
+    if poster is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poster record not found")
+
+    try:
+        new_status = PosterStatus(payload.status)
+    except ValueError:
+        valid = ", ".join(s.value for s in PosterStatus)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown status '{payload.status}' (valid: {valid})")
+
+    required_role = required_role_for_transition(new_status)
+    if role_rank(current_user.role) < role_rank(required_role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Changing status to '{new_status.value}' requires the {required_role.value} role or above",
+        )
+
+    is_admin_force = payload.force and role_rank(current_user.role) >= role_rank(UserRole.ADMIN)
+    try:
+        validate_poster_transition(poster.status, new_status, force=is_admin_force)
+    except StatusTransitionError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+    previous_status = poster.status
+    poster.status = new_status
+    poster.approval_status = approval_status_for(new_status)
+    db.commit()
+
+    record_audit(
+        actor=current_user.username,
+        action="poster_status_changed",
+        resource_type="poster",
+        resource_id=poster.id,
+        detail={
+            "from": previous_status.value,
+            "to": new_status.value,
+            "forced": is_admin_force,
+            "notes": payload.notes,
+        },
     )
     return poster
 

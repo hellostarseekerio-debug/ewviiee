@@ -52,6 +52,22 @@ class ApprovalStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class PosterStatus(str, enum.Enum):
+    """Poster Archive lifecycle - replaces the flat, un-actionable "Pending"
+    every imported poster used to be stuck at. See app/posters/status.py for
+    the allowed-transition graph and role requirements; `Poster.status` is
+    the source of truth going forward, with `approval_status` kept in sync
+    (via app.posters.status.approval_status_for) for one deprecation cycle
+    so anything still reading the old field keeps working."""
+
+    DRAFT = "draft"
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    PUBLISHED = "published"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+
 class Document(Base):
     """A single document tracked through the system, with full metadata."""
 
@@ -290,6 +306,16 @@ class Poster(Base):
     # --- Future-compatibility columns (see class docstring) -----------------
     approval_status: Mapped[ApprovalStatus] = mapped_column(
         SAEnum(ApprovalStatus), default=ApprovalStatus.PENDING, index=True
+    )
+
+    # Real lifecycle status (draft/pending_review/approved/published/
+    # rejected/archived) - see PosterStatus's docstring and
+    # app/posters/status.py for the transition rules. Defaults to
+    # PENDING_REVIEW to match every existing row's prior "Pending" meaning
+    # (imported/created records have always been treated as awaiting
+    # review, never as an unstarted draft).
+    status: Mapped[PosterStatus] = mapped_column(
+        SAEnum(PosterStatus), default=PosterStatus.PENDING_REVIEW, index=True
     )
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)

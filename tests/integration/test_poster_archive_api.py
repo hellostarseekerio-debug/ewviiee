@@ -276,3 +276,179 @@ def test_import_requires_non_empty_text(bootstrap_admin):
 def test_unauthenticated_requests_are_rejected(api_client):
     assert api_client.get("/api/posters").status_code == 401
     assert api_client.post("/api/posters/import", json={"text": SAMPLE_TEXT}).status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Status workflow (POST /api/posters/{id}/status) - see app/posters/status.py
+# for the transition graph and role rules this exercises.
+# ---------------------------------------------------------------------------
+
+
+def _login(client, username: str, password: str = "SuperSecret123!") -> dict:
+    response = client.post("/api/auth/token", data={"username": username, "password": password})
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def _make_user(client, admin_headers: dict, username: str, role: str) -> dict:
+    client.post(
+        "/api/auth/admin/users",
+        json={"username": username, "password": "SuperSecret123!", "role": role},
+        headers=admin_headers,
+    )
+    return _login(client, username)
+
+
+def _create_poster(client, headers: dict, dropbox_url: str = "https://www.dropbox.com/scl/fo/status-test") -> str:
+    response = client.post(
+        "/api/posters", json={"poster_title": "Status test", "dropbox_url": dropbox_url}, headers=headers
+    )
+    return response.json()["id"]
+
+
+def test_new_poster_defaults_to_pending_review(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+    poster = client.get(f"/api/posters/{poster_id}", headers=headers).json()
+    assert poster["status"] == "pending_review"
+    assert poster["approval_status"] == "pending"
+
+
+def test_valid_transition_updates_status_and_syncs_approval_status(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "approved"}, headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "approved"
+    assert body["approval_status"] == "approved"
+
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "published"}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "archived"}, headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "archived"
+    assert body["approval_status"] == "approved"
+
+
+def test_rejecting_syncs_legacy_approval_status(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "rejected"}, headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "rejected"
+    assert body["approval_status"] == "rejected"
+
+
+def test_invalid_transition_is_rejected_with_409(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+    # pending_review -> published skips the approve/publish steps entirely.
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "published"}, headers=headers)
+    assert response.status_code == 409
+    assert "pending_review" in response.json()["detail"]
+
+
+def test_unknown_status_value_is_rejected_with_422(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "not_a_real_status"}, headers=headers)
+    assert response.status_code == 422
+
+
+def test_status_change_on_unknown_poster_is_404(bootstrap_admin):
+    client, headers = bootstrap_admin
+    response = client.post("/api/posters/does-not-exist/status", json={"status": "approved"}, headers=headers)
+    assert response.status_code == 404
+
+
+def test_setting_the_same_status_again_is_a_noop_not_an_error(bootstrap_admin):
+    client, headers = bootstrap_admin
+    poster_id = _create_poster(client, headers)
+    response = client.post(
+        f"/api/posters/{poster_id}/status", json={"status": "pending_review"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "pending_review"
+
+
+def test_viewer_cannot_change_status_at_all(bootstrap_admin):
+    client, admin_headers = bootstrap_admin
+    poster_id = _create_poster(client, admin_headers)
+    viewer_headers = _make_user(client, admin_headers, "viewer_status", "viewer")
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "approved"}, headers=viewer_headers)
+    assert response.status_code == 403
+
+
+def test_reviewer_can_approve_and_reject(bootstrap_admin):
+    client, admin_headers = bootstrap_admin
+    reviewer_headers = _make_user(client, admin_headers, "reviewer_status", "reviewer")
+
+    poster_id = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/reviewer-approve")
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "approved"}, headers=reviewer_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "approved"
+
+    poster_id_2 = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/reviewer-reject")
+    response = client.post(f"/api/posters/{poster_id_2}/status", json={"status": "rejected"}, headers=reviewer_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+
+
+def test_reviewer_cannot_perform_editor_only_transitions(bootstrap_admin):
+    """Approve is Reviewer+, but publishing an already-approved poster is an
+    Editor+ operational step - a plain Reviewer account must not be able
+    to do it."""
+    client, admin_headers = bootstrap_admin
+    reviewer_headers = _make_user(client, admin_headers, "reviewer_status2", "reviewer")
+
+    poster_id = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/reviewer-publish-blocked")
+    approve = client.post(f"/api/posters/{poster_id}/status", json={"status": "approved"}, headers=admin_headers)
+    assert approve.status_code == 200
+
+    response = client.post(f"/api/posters/{poster_id}/status", json={"status": "published"}, headers=reviewer_headers)
+    assert response.status_code == 403
+
+
+def test_editor_can_perform_both_review_and_editor_transitions(bootstrap_admin):
+    """_ROLE_RANK ranks Editor above Reviewer, so an Editor account must be
+    able to do everything a Reviewer can plus the Editor-only steps."""
+    client, admin_headers = bootstrap_admin
+    editor_headers = _make_user(client, admin_headers, "editor_status", "editor")
+
+    poster_id = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/editor-full-flow")
+    approve = client.post(f"/api/posters/{poster_id}/status", json={"status": "approved"}, headers=editor_headers)
+    assert approve.status_code == 200
+    publish = client.post(f"/api/posters/{poster_id}/status", json={"status": "published"}, headers=editor_headers)
+    assert publish.status_code == 200
+    archive = client.post(f"/api/posters/{poster_id}/status", json={"status": "archived"}, headers=editor_headers)
+    assert archive.status_code == 200
+
+
+def test_admin_force_bypasses_the_transition_graph(bootstrap_admin):
+    client, admin_headers = bootstrap_admin
+    poster_id = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/force-test")
+    # pending_review -> archived is not a normally-allowed transition.
+    response = client.post(
+        f"/api/posters/{poster_id}/status",
+        json={"status": "archived", "force": True},
+        headers=admin_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "archived"
+
+
+def test_non_admin_force_flag_is_ignored(bootstrap_admin):
+    client, admin_headers = bootstrap_admin
+    editor_headers = _make_user(client, admin_headers, "editor_force", "editor")
+    poster_id = _create_poster(client, admin_headers, "https://www.dropbox.com/scl/fo/editor-force-test")
+    response = client.post(
+        f"/api/posters/{poster_id}/status",
+        json={"status": "archived", "force": True},
+        headers=editor_headers,
+    )
+    assert response.status_code == 409
