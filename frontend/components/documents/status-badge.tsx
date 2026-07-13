@@ -43,5 +43,12 @@ const POSTER_STATUS_LABEL: Record<PosterStatusValue, string> = {
 };
 
 export function PosterStatusBadge({ status }: { status: PosterStatusValue }) {
-  return <Badge variant={POSTER_STATUS_VARIANT[status]}>{POSTER_STATUS_LABEL[status]}</Badge>;
+  // `status` is only guaranteed a known value by the TypeScript contract,
+  // not at runtime (an out-of-sync backend, or data missing this field
+  // entirely) - fall back to a plain, safely-labeled badge instead of
+  // rendering blank or handing an undefined value to a caller that
+  // assumes it's always one of the seven known statuses.
+  const variant = POSTER_STATUS_VARIANT[status] ?? "secondary";
+  const label = POSTER_STATUS_LABEL[status] ?? (status || "Unknown");
+  return <Badge variant={variant}>{label}</Badge>;
 }

@@ -90,7 +90,12 @@ const POSTER_STATUS_LABEL: Record<PosterStatusValue, string> = {
 };
 
 function PosterStatusMenu({ poster, onChanged }: { poster: PosterOut; onChanged: () => void }) {
-  const nextStatuses = POSTER_NEXT_STATUSES[poster.status];
+  // poster.status is only guaranteed by the TypeScript contract, not at
+  // runtime - an out-of-sync backend deploy or unexpected data can send a
+  // value outside the known set, and indexing this map would silently
+  // return undefined. Fall back to "no transitions offered" rather than
+  // crashing the whole page on `.length`.
+  const nextStatuses = POSTER_NEXT_STATUSES[poster.status] ?? [];
 
   async function handleChange(next: PosterStatusValue) {
     try {
