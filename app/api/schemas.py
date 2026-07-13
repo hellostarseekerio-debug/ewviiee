@@ -496,3 +496,57 @@ class ZipExportAcceptedResponse(BaseModel):
     job_id: str
     status: str
     total_items: int
+
+
+# --- Housing Estate Application wizard (app/applications/) -----------------
+
+
+class ApplicationStepHistoryEntry(BaseModel):
+    step: int
+    status: str
+    actor: str | None
+    at: str
+    detail: str | None
+
+
+class ApplicationAILogEntry(BaseModel):
+    step: int
+    provider: str
+    operation: str
+    prompt_summary: str | None
+    duration_ms: int | None
+    success: bool
+    at: str
+
+
+class ApplicationOut(BaseModel):
+    id: str
+    status: str
+    current_step: int
+    poster_id: str | None
+    application_pdf_path: str | None
+    generated_pdf_path: str | None
+    template_used: str | None
+    dropbox_folder_url: str | None
+    image_links: dict[str, str] | None
+    ai_logs: list[ApplicationAILogEntry] | None
+    step_history: list[ApplicationStepHistoryEntry] | None
+    quality_check_results: dict | None
+    export_package_path: str | None
+    started_by: str | None
+    completed_by: str | None
+    started_at: datetime
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApplicationListResponse(BaseModel):
+    total: int
+    results: list[ApplicationOut]
+
+
+class ApplicationAttachPosterRequest(BaseModel):
+    poster_id: str = Field(..., min_length=1)

@@ -64,6 +64,7 @@ def test_head_schema_has_folders_posters_folder_id_and_export_jobs():
     assert "starred_items" in tables
     assert "export_jobs" in tables
     assert "poster_link_history" in tables
+    assert "applications" in tables
 
     poster_columns = {c["name"] for c in inspector.get_columns("posters")}
     assert "folder_id" in poster_columns
@@ -75,6 +76,13 @@ def test_head_schema_has_folders_posters_folder_id_and_export_jobs():
     assert "needs_review" in poster_columns
     assert "dropbox_link_broken" in poster_columns
     assert "dropbox_last_verified_at" in poster_columns
+
+    application_columns = {c["name"] for c in inspector.get_columns("applications")}
+    assert "status" in application_columns
+    assert "current_step" in application_columns
+    assert "poster_id" in application_columns
+    assert "step_history" in application_columns
+    assert "ai_logs" in application_columns
 
 
 def test_downgrading_to_0006_removes_folder_support_cleanly():
@@ -102,12 +110,18 @@ def test_downgrading_to_0006_removes_folder_support_cleanly():
 
 
 def test_downgrading_one_step_from_head_removes_extended_metadata():
-    """Downgrading from head by one revision (0008 -> 0007) must cleanly
-    remove the extended-metadata columns and poster_link_history, leaving
-    folders/status intact."""
+    """Downgrading from head to 0007 must cleanly remove 0008's extended-
+    metadata columns and poster_link_history, leaving folders/status
+    intact. Targets "0007" explicitly rather than "-1" (now two steps
+    back, since 0009 - the applications table - is head), matching
+    test_downgrading_to_0006_removes_folder_support_cleanly's reasoning:
+    a relative downgrade would test something different every time head
+    moves forward, so this keeps checking 0008's downgrade specifically.
+    0009's own downgrade is covered separately by
+    test_downgrading_from_head_removes_applications_table."""
     cfg = _alembic_config()
     command.upgrade(cfg, "head")
-    command.downgrade(cfg, "-1")
+    command.downgrade(cfg, "0007")
 
     engine = sa.create_engine(f"sqlite:///{_current_db_path()}")
     inspector = sa.inspect(engine)
@@ -119,6 +133,21 @@ def test_downgrading_one_step_from_head_removes_extended_metadata():
     assert "folder_id" in poster_columns
     assert "campaign_name" not in poster_columns
     assert "needs_review" not in poster_columns
+
+
+def test_downgrading_from_head_removes_applications_table():
+    """0009 (the applications table) is now head - downgrading one step
+    must cleanly remove it while leaving everything 0008 added intact."""
+    cfg = _alembic_config()
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0008")
+
+    engine = sa.create_engine(f"sqlite:///{_current_db_path()}")
+    inspector = sa.inspect(engine)
+    tables = set(inspector.get_table_names())
+    assert "applications" not in tables
+    assert "posters" in tables
+    assert "poster_link_history" in tables
 
 
 def test_migrated_database_can_store_a_folder_and_a_filed_poster():

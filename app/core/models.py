@@ -459,3 +459,97 @@ class ExportJob(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ApplicationStatus(str, enum.Enum):
+    """Housing Estate Application wizard lifecycle - one status per active
+    step (see app/applications/steps.py for the step<->status mapping and
+    the forward/backward transition rules), plus two terminal states.
+    `current_step` (1-6) is the source of truth for wizard position;
+    `status` is the human-facing state that also captures "this step
+    failed" and "the whole application is done", which a bare step number
+    can't express on its own."""
+
+    DRAFT = "draft"
+    EDITING_LETTER = "editing_letter"
+    REPLACING_IMAGES = "replacing_images"
+    GENERATING = "generating"
+    QUALITY_CHECK = "quality_check"
+    READY = "ready"
+    EXPORTED = "exported"
+    FAILED = "failed"
+
+
+class Application(Base):
+    """The parent object for the Housing Estate Application wizard - see
+    docs/ARCHITECTURE_REVIEW_2026-07.md and the approved implementation
+    plan for the full spec. Everything the 6-step wizard touches (the
+    source Poster, the uploaded application PDF, the AI-edited/
+    image-replaced generated PDF, the Dropbox asset links, AI call logs,
+    step history, quality-check results, and the final export package)
+    hangs off one row here, so the wizard is "one Application, one
+    resumable record" rather than a set of unrelated pages a user has to
+    stitch together themselves.
+
+    Deliberately separate from Poster/ExportJob rather than bolted onto
+    either: a Poster is a single archived record (this wizard optionally
+    *references* one as its Step 1 output, via `poster_id`), and ExportJob
+    tracks one background ZIP build, not a whole multi-step, resumable,
+    audited process with its own review/approval concept.
+    """
+
+    __tablename__ = "applications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+
+    status: Mapped[ApplicationStatus] = mapped_column(
+        SAEnum(ApplicationStatus), default=ApplicationStatus.DRAFT, index=True
+    )
+    current_step: Mapped[int] = mapped_column(Integer, default=1, index=True)
+
+    # Step 1 output - the archived poster record this application is for.
+    # Nullable because an application starts before a poster is necessarily
+    # attached (the wizard's very first screen).
+    poster_id: Mapped[str | None] = mapped_column(ForeignKey("posters.id"), nullable=True, index=True)
+
+    # Step 2: the uploaded Housing Estate Application PDF, and the
+    # AI-edited/image-replaced result that becomes the final submission.
+    application_pdf_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    generated_pdf_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    template_used: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+    # Step 3: pasted Dropbox shared links, keyed by detected image "role"
+    # (e.g. a politician-combination naming pattern) rather than a folder
+    # listing - see app/storage/providers/dropbox.py's documented scope
+    # (shared-link download/verify only, no OAuth/folder-browsing API).
+    dropbox_folder_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    image_links: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Step 4/AI review: every AI call this application has triggered
+    # (provider, operation, prompt summary, duration, success) - a
+    # per-application companion to the global AIUsageLog, kept here too so
+    # one application's full AI history is visible without cross-
+    # referencing another table by timestamp/actor.
+    ai_logs: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+
+    # Full audit trail: one entry per step transition/action
+    # ({"step": int, "status": str, "actor": str|None, "at": iso str,
+    # "detail": str|None}) - same shape convention as Poster.workflow_steps,
+    # append-only, never rewritten.
+    step_history: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+
+    # Step 5 output.
+    quality_check_results: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Step 6 output - path to the assembled submission package (see the
+    # approved spec's Export Package structure).
+    export_package_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+    started_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    completed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

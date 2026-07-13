@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.rate_limit import limiter
 from app.api.routes import (
+    applications,
     auth,
     dashboard,
     documents,
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.include_router(folders.router)
     app.include_router(exports.router)
     app.include_router(starred.router)
+    app.include_router(applications.router)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
