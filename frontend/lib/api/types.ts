@@ -132,6 +132,24 @@ export interface DashboardStats {
     success: boolean;
     created_at: string;
   }>;
+
+  total_posters: number;
+  posters_by_district: Record<string, number>;
+  posters_by_estate: Record<string, number>;
+  posters_by_status: Record<string, number>;
+  recent_poster_uploads: Array<{
+    id: string;
+    title: string | null;
+    district: string | null;
+    estate: string | null;
+    created_at: string;
+  }>;
+  broken_dropbox_links: number;
+  duplicate_poster_groups: number;
+  downloads_today: number;
+  pending_reviews: number;
+  most_active_users: Array<{ actor: string | null; action_count: number }>;
+  export_storage_bytes: number;
 }
 
 export interface SystemSettings {
@@ -150,6 +168,7 @@ export interface WorkflowStep {
 export type PosterStatusValue =
   | "draft"
   | "pending_review"
+  | "needs_changes"
   | "approved"
   | "published"
   | "rejected"
@@ -171,6 +190,13 @@ export interface PosterOut {
   approval_status: "pending" | "approved" | "rejected";
   status: PosterStatusValue;
   folder_id: string | null;
+  campaign_name: string | null;
+  government_department: string | null;
+  version: string | null;
+  source: string | null;
+  needs_review: boolean;
+  dropbox_link_broken: boolean | null;
+  dropbox_last_verified_at: string | null;
   ai_summary: string | null;
   ocr_text: string | null;
   attachments: Record<string, unknown>[] | null;
@@ -202,9 +228,49 @@ export interface PosterCreateRequest {
   notes?: string | null;
   workflow_steps?: WorkflowStep[] | null;
   folder_id?: string | null;
+  campaign_name?: string | null;
+  government_department?: string | null;
+  version?: string | null;
 }
 
-export type PosterUpdateRequest = Partial<PosterCreateRequest> & { approval_status?: string | null };
+export type PosterUpdateRequest = Partial<PosterCreateRequest> & {
+  approval_status?: string | null;
+  needs_review?: boolean | null;
+};
+
+export interface PosterBulkFieldUpdateRequest {
+  ids: string[];
+  district?: string | null;
+  estate?: string | null;
+  poster_type?: string | null;
+  add_keywords?: string[] | null;
+}
+
+export interface PosterBulkStatusRequest {
+  ids: string[];
+  status: PosterStatusValue;
+  force?: boolean;
+}
+
+export interface DuplicateGroupOut {
+  reason: "exact_dropbox_link" | "similar_title";
+  poster_ids: string[];
+  detail: string;
+}
+
+export interface LinkVerifyResultOut {
+  poster_id: string;
+  dropbox_link_broken: boolean | null;
+  dropbox_last_verified_at: string | null;
+}
+
+export interface PosterLinkHistoryOut {
+  id: string;
+  old_url: string | null;
+  new_url: string | null;
+  changed_by: string | null;
+  changed_at: string;
+}
 
 export interface PosterBulkMoveRequest {
   ids: string[];

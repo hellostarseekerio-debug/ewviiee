@@ -5,7 +5,11 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
+  Copy,
+  Download,
   FileText,
+  FolderKanban,
   Users,
   Sparkles,
   HardDrive,
@@ -13,6 +17,7 @@ import {
   Search as SearchIcon,
   UserPlus,
   CheckCircle2,
+  Clock,
   XCircle,
 } from "lucide-react";
 import { dashboardApi } from "@/lib/api/endpoints";
@@ -95,6 +100,50 @@ export default function DashboardPage() {
               label="AI operations"
               value={stats.ai_usage_total}
               sub={`${stats.ai_usage_local} local · ${stats.ai_usage_cloud} cloud`}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {loading || !stats ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+        ) : (
+          <>
+            <StatCard icon={FolderKanban} label="Poster records" value={stats.total_posters} />
+            <StatCard icon={Clock} label="Pending reviews" value={stats.pending_reviews} />
+            <StatCard
+              icon={AlertTriangle}
+              label="Broken Dropbox links"
+              value={stats.broken_dropbox_links}
+              sub={stats.broken_dropbox_links > 0 ? "Needs verification" : undefined}
+            />
+            <StatCard icon={Copy} label="Possible duplicates" value={stats.duplicate_poster_groups} />
+          </>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {loading || !stats ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+        ) : (
+          <>
+            <StatCard icon={Download} label="Downloads today" value={stats.downloads_today} />
+            <StatCard
+              icon={HardDrive}
+              label="Export storage used"
+              value={`${(stats.export_storage_bytes / (1024 * 1024)).toFixed(1)} MB`}
+            />
+            <StatCard
+              icon={Users}
+              label="Most active user"
+              value={stats.most_active_users[0]?.actor ?? "—"}
+              sub={stats.most_active_users[0] ? `${stats.most_active_users[0].action_count} actions` : undefined}
+            />
+            <StatCard
+              icon={FileText}
+              label="Recent poster uploads"
+              value={stats.recent_poster_uploads.length}
             />
           </>
         )}
@@ -187,6 +236,70 @@ export default function DashboardPage() {
                 </Badge>
               ))
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && stats && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Posters by district</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {Object.entries(stats.posters_by_district).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No posters filed to a district yet.</p>
+              ) : (
+                Object.entries(stats.posters_by_district).map(([district, count]) => (
+                  <Badge key={district} variant="secondary" className="gap-1.5 py-1">
+                    {district}
+                    <span className="rounded-full bg-background px-1.5 text-[10px] font-semibold">{count}</span>
+                  </Badge>
+                ))
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Posters by estate</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {Object.entries(stats.posters_by_estate).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No posters filed to an estate yet.</p>
+              ) : (
+                Object.entries(stats.posters_by_estate).map(([estate, count]) => (
+                  <Badge key={estate} variant="secondary" className="gap-1.5 py-1">
+                    {estate}
+                    <span className="rounded-full bg-background px-1.5 text-[10px] font-semibold">{count}</span>
+                  </Badge>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {!loading && stats && stats.recent_poster_uploads.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent poster uploads</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y divide-border">
+              {stats.recent_poster_uploads.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{p.title || "(untitled)"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[p.district, p.estate].filter(Boolean).join(" · ") || "Unfiled"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}

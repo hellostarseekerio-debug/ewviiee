@@ -4,16 +4,21 @@ import type {
   DashboardStats,
   DocumentOut,
   DocumentVersionOut,
+  DuplicateGroupOut,
   ExportJobOut,
   FolderCreateRequest,
   FolderDetailOut,
   FolderOut,
   FolderTreeNodeOut,
+  LinkVerifyResultOut,
   MFASetupResponse,
   PluginOut,
+  PosterBulkFieldUpdateRequest,
   PosterBulkMoveRequest,
+  PosterBulkStatusRequest,
   PosterCreateRequest,
   PosterImportResponse,
+  PosterLinkHistoryOut,
   PosterListResponse,
   PosterOut,
   PosterStatusChangeRequest,
@@ -171,6 +176,14 @@ export const postersApi = {
     apiFetch<{ deleted: number }>("/api/posters/bulk-delete", { method: "POST", body: { ids } }),
   bulkMove: (payload: PosterBulkMoveRequest) =>
     apiFetch<{ moved: number }>("/api/posters/bulk-move", { method: "POST", body: payload }),
+  bulkUpdate: (payload: PosterBulkFieldUpdateRequest) =>
+    apiFetch<{ updated: number }>("/api/posters/bulk-update", { method: "POST", body: payload }),
+  bulkStatus: (payload: PosterBulkStatusRequest) =>
+    apiFetch<{ changed: number; skipped: string[] }>("/api/posters/bulk-status", { method: "POST", body: payload }),
+  duplicates: () => apiFetch<DuplicateGroupOut[]>("/api/posters/duplicates"),
+  verifyLink: (id: string) =>
+    apiFetch<LinkVerifyResultOut>(`/api/posters/${id}/verify-link`, { method: "POST" }),
+  linkHistory: (id: string) => apiFetch<PosterLinkHistoryOut[]>(`/api/posters/${id}/link-history`),
   exportCsvUrl: (filters: PosterFilters) => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) {

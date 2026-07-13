@@ -67,6 +67,9 @@ def test_validate_transition_error_message_lists_allowed_targets():
         (PosterStatus.PUBLISHED, PosterStatus.ARCHIVED),
         (PosterStatus.REJECTED, PosterStatus.DRAFT),
         (PosterStatus.REJECTED, PosterStatus.PENDING_REVIEW),
+        (PosterStatus.PENDING_REVIEW, PosterStatus.NEEDS_CHANGES),
+        (PosterStatus.NEEDS_CHANGES, PosterStatus.DRAFT),
+        (PosterStatus.NEEDS_CHANGES, PosterStatus.PENDING_REVIEW),
     ],
 )
 def test_valid_poster_transitions_do_not_raise(current, new):
@@ -89,6 +92,10 @@ def test_valid_poster_transitions_do_not_raise(current, new):
         (PosterStatus.ARCHIVED, PosterStatus.PUBLISHED),
         (PosterStatus.REJECTED, PosterStatus.APPROVED),
         (PosterStatus.REJECTED, PosterStatus.PUBLISHED),
+        (PosterStatus.DRAFT, PosterStatus.NEEDS_CHANGES),
+        (PosterStatus.NEEDS_CHANGES, PosterStatus.APPROVED),
+        (PosterStatus.NEEDS_CHANGES, PosterStatus.PUBLISHED),
+        (PosterStatus.APPROVED, PosterStatus.NEEDS_CHANGES),
     ],
 )
 def test_invalid_poster_transitions_raise(current, new):
@@ -114,6 +121,7 @@ def test_setting_the_same_status_again_is_a_noop_for_every_status():
     [
         (PosterStatus.APPROVED, UserRole.REVIEWER),
         (PosterStatus.REJECTED, UserRole.REVIEWER),
+        (PosterStatus.NEEDS_CHANGES, UserRole.REVIEWER),
         (PosterStatus.DRAFT, UserRole.EDITOR),
         (PosterStatus.PENDING_REVIEW, UserRole.EDITOR),
         (PosterStatus.PUBLISHED, UserRole.EDITOR),
@@ -129,6 +137,7 @@ def test_required_role_for_transition(target, expected_role):
     [
         (PosterStatus.DRAFT, ApprovalStatus.PENDING),
         (PosterStatus.PENDING_REVIEW, ApprovalStatus.PENDING),
+        (PosterStatus.NEEDS_CHANGES, ApprovalStatus.PENDING),
         (PosterStatus.APPROVED, ApprovalStatus.APPROVED),
         (PosterStatus.PUBLISHED, ApprovalStatus.APPROVED),
         (PosterStatus.ARCHIVED, ApprovalStatus.APPROVED),

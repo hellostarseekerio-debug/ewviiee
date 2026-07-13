@@ -63,6 +63,7 @@ class PosterStatus(str, enum.Enum):
 
     DRAFT = "draft"
     PENDING_REVIEW = "pending_review"
+    NEEDS_CHANGES = "needs_changes"
     APPROVED = "approved"
     PUBLISHED = "published"
     REJECTED = "rejected"
@@ -325,13 +326,55 @@ class Poster(Base):
     # Nullable: a poster with no folder is simply "unfiled" (shown at the
     # archive root), never an error state. See app/folders/service.py (the
     # resource-agnostic folder engine) and app/folders/suggestions.py (the
-    # Year/Month/District/Estate auto-filing applied at import time).
+    # Year/Month/District/Estate/Poster-Type auto-filing applied at import
+    # time).
     folder_id: Mapped[str | None] = mapped_column(ForeignKey("folders.id"), nullable=True, index=True)
+
+    # --- Extended metadata (Phase 2B) ----------------------------------------
+    campaign_name: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    government_department: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # How this record entered the system ("paste_import" | "manual") - a
+    # plain provenance tag, not extracted from text.
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+
+    # Set when the parser couldn't confidently resolve enough fields (no
+    # district, estate, or usable title) - see app/posters/parser.py's
+    # confidence check. Staff should treat these as "check before trusting",
+    # not as wrong; the parser never invents a value it isn't reasonably
+    # sure of, so this is the honest alternative to silently guessing.
+    needs_review: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # Dropbox link health (app/storage/providers/dropbox.py's verify()) -
+    # None means "never checked", not "known good".
+    dropbox_link_broken: Mapped[bool | None] = mapped_column(Boolean, nullable=True, index=True)
+    dropbox_last_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+    link_history: Mapped[list["PosterLinkHistory"]] = relationship(
+        back_populates="poster", cascade="all, delete-orphan", order_by="PosterLinkHistory.changed_at"
+    )
+
+
+class PosterLinkHistory(Base):
+    """Preserves every previous Dropbox link a poster record has had -
+    written whenever `dropbox_url` changes via PATCH /api/posters/{id}, so
+    "the link changed" is never silently lossy."""
+
+    __tablename__ = "poster_link_history"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    poster_id: Mapped[str] = mapped_column(ForeignKey("posters.id"), index=True)
+    old_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    new_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    changed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+    poster: Mapped[Poster] = relationship(back_populates="link_history")
 
 
 class Folder(Base):

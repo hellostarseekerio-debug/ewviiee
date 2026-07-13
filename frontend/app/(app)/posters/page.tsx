@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Archive,
   ChevronDown,
   ClipboardPaste,
   Clock,
+  Copy,
   Download,
   ExternalLink,
   FolderInput,
@@ -16,12 +18,20 @@ import {
   Loader2,
   Pencil,
   Plus,
+  RefreshCw,
   Star,
   Trash2,
 } from "lucide-react";
 import { exportJobsApi, foldersApi, postersApi, starredApi } from "@/lib/api/endpoints";
 import type { PosterFilters } from "@/lib/api/endpoints";
-import type { FolderOut, FolderTreeNodeOut, PosterOut, PosterStatusValue, PosterZipExportRequest } from "@/lib/api/types";
+import type {
+  DuplicateGroupOut,
+  FolderOut,
+  FolderTreeNodeOut,
+  PosterOut,
+  PosterStatusValue,
+  PosterZipExportRequest,
+} from "@/lib/api/types";
 import { ApiError } from "@/lib/api/types";
 import { useAuth, hasRole } from "@/lib/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,7 +71,8 @@ import { FolderPickerDialog } from "@/components/folders/folder-picker-dialog";
 // on every request regardless of what this list suggests.
 const POSTER_NEXT_STATUSES: Record<PosterStatusValue, PosterStatusValue[]> = {
   draft: ["pending_review"],
-  pending_review: ["approved", "rejected", "draft"],
+  pending_review: ["approved", "rejected", "needs_changes", "draft"],
+  needs_changes: ["draft", "pending_review"],
   approved: ["published", "pending_review"],
   published: ["archived"],
   rejected: ["draft", "pending_review"],
@@ -71,6 +82,7 @@ const POSTER_NEXT_STATUSES: Record<PosterStatusValue, PosterStatusValue[]> = {
 const POSTER_STATUS_LABEL: Record<PosterStatusValue, string> = {
   draft: "Draft",
   pending_review: "Pending review",
+  needs_changes: "Needs changes",
   approved: "Approved",
   published: "Published",
   rejected: "Rejected",
@@ -123,6 +135,75 @@ function StarToggle({ starred, onToggle }: { starred: boolean; onToggle: () => v
   );
 }
 
+// Dropbox Improvements: preview/open, copy link, verify link (real HTTP
+// check via app/storage/providers/dropbox.py's verify()), broken-link
+// detection, and last-verified timestamp.
+function DropboxLinkCell({ poster, onChanged }: { poster: PosterOut; onChanged: () => void }) {
+  const [verifying, setVerifying] = useState(false);
+
+  async function handleCopy() {
+    if (!poster.dropbox_url) return;
+    await navigator.clipboard.writeText(poster.dropbox_url);
+    toast.success("Link copied");
+  }
+
+  async function handleVerify() {
+    setVerifying(true);
+    try {
+      const result = await postersApi.verifyLink(poster.id);
+      if (result.dropbox_link_broken) {
+        toast.error("Link appears broken");
+      } else {
+        toast.success("Link verified OK");
+      }
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Verification failed");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  if (!poster.dropbox_url) {
+    return <Badge variant="secondary">Missing</Badge>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" asChild>
+          <a href={poster.dropbox_url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5" /> Open
+          </a>
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCopy} aria-label="Copy Dropbox link">
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleVerify}
+          disabled={verifying}
+          aria-label="Verify Dropbox link"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${verifying ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+      {poster.dropbox_link_broken === true && (
+        <Badge variant="destructive" className="w-fit gap-1">
+          <AlertTriangle className="h-3 w-3" /> Broken link
+        </Badge>
+      )}
+      {poster.dropbox_last_verified_at && (
+        <span className="text-[10px] text-muted-foreground">
+          Verified {new Date(poster.dropbox_last_verified_at).toLocaleDateString()}
+        </span>
+      )}
+    </div>
+  );
+}
+
 const PAGE_SIZE = 24;
 
 type ViewMode =
@@ -167,6 +248,8 @@ export default function PosterArchivePage() {
   const [breadcrumbs, setBreadcrumbs] = useState<FolderOut[]>([]);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [movePickerOpen, setMovePickerOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -459,6 +542,9 @@ export default function PosterArchivePage() {
             <Button variant="outline" loading={exporting} onClick={() => handleExportZip(currentViewZipPayload())}>
               <Download className="h-4 w-4" /> Download ZIP
             </Button>
+            <Button variant="outline" onClick={() => setDuplicatesOpen(true)}>
+              <Copy className="h-4 w-4" /> Duplicates
+            </Button>
             {hasRole(user, "editor") && (
               <>
                 <Button variant="outline" onClick={() => setEditTarget("new")}>
@@ -582,6 +668,11 @@ export default function PosterArchivePage() {
                     <FolderInput className="h-4 w-4" /> Move to folder
                   </Button>
                 )}
+                {hasRole(user, "editor") && (
+                  <Button variant="outline" size="sm" onClick={() => setBulkEditOpen(true)}>
+                    <Pencil className="h-4 w-4" /> Bulk edit
+                  </Button>
+                )}
                 {hasRole(user, "admin") && (
                   <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
                     <Trash2 className="h-4 w-4" /> Delete selected
@@ -631,11 +722,18 @@ export default function PosterArchivePage() {
                       </TableCell>
                       <TableCell className="max-w-xs">
                         <p className="truncate font-medium">{p.poster_title || "(untitled)"}</p>
-                        {p.poster_type && (
-                          <Badge variant="outline" className="mt-1 capitalize">
-                            {p.poster_type}
-                          </Badge>
-                        )}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {p.poster_type && (
+                            <Badge variant="outline" className="capitalize">
+                              {p.poster_type.replaceAll("_", " ")}
+                            </Badge>
+                          )}
+                          {p.needs_review && (
+                            <Badge variant="warning" className="gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Needs review
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {[p.district, p.estate].filter(Boolean).join(" · ") || "—"}
@@ -652,15 +750,7 @@ export default function PosterArchivePage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {p.dropbox_url ? (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
-                            </a>
-                          </Button>
-                        ) : (
-                          <Badge variant="secondary">Missing</Badge>
-                        )}
+                        <DropboxLinkCell poster={p} onChanged={load} />
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -704,19 +794,20 @@ export default function PosterArchivePage() {
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {p.route_number && <Badge variant="secondary">Route {p.route_number}</Badge>}
-                    {p.poster_type && <Badge variant="outline" className="capitalize">{p.poster_type}</Badge>}
+                    {p.poster_type && (
+                      <Badge variant="outline" className="capitalize">
+                        {p.poster_type.replaceAll("_", " ")}
+                      </Badge>
+                    )}
                     {p.document_date && <Badge variant="outline">{new Date(p.document_date).toLocaleDateString()}</Badge>}
+                    {p.needs_review && (
+                      <Badge variant="warning" className="gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Needs review
+                      </Badge>
+                    )}
                   </div>
                   <div className="mt-2 flex items-center justify-between">
-                    {p.dropbox_url ? (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={p.dropbox_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5" /> Open Dropbox
-                        </a>
-                      </Button>
-                    ) : (
-                      <Badge variant="secondary">Missing Dropbox</Badge>
-                    )}
+                    <DropboxLinkCell poster={p} onChanged={load} />
                     <div className="flex gap-1">
                       {hasRole(user, "editor") && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
@@ -775,8 +866,146 @@ export default function PosterArchivePage() {
           onConfirm={handleBulkMove}
           title={`Move ${selected.size} record(s)`}
         />
+        <DuplicatesDialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen} />
+        <BulkEditDialog
+          open={bulkEditOpen}
+          onOpenChange={setBulkEditOpen}
+          count={selected.size}
+          onConfirm={async (fields) => {
+            try {
+              const result = await postersApi.bulkUpdate({ ids: Array.from(selected), ...fields });
+              toast.success(`Updated ${result.updated} record(s)`);
+              refreshAll();
+            } catch (err) {
+              toast.error(err instanceof ApiError ? err.message : "Bulk edit failed");
+            }
+          }}
+        />
       </div>
     </div>
+  );
+}
+
+function DuplicatesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [groups, setGroups] = useState<DuplicateGroupOut[]>([]);
+  const [posterTitles, setPosterTitles] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    postersApi
+      .duplicates()
+      .then(async (result) => {
+        setGroups(result);
+        const ids = Array.from(new Set(result.flatMap((g) => g.poster_ids)));
+        const fetched = await Promise.allSettled(ids.map((id) => postersApi.get(id)));
+        const titles: Record<string, string> = {};
+        fetched.forEach((r, i) => {
+          if (r.status === "fulfilled") titles[ids[i]] = r.value.poster_title || "(untitled)";
+        });
+        setPosterTitles(titles);
+      })
+      .catch(() => toast.error("Failed to load duplicates"))
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Possible duplicates</DialogTitle>
+          <DialogDescription>
+            Exact Dropbox link reuse and similar titles - review and merge/edit manually; nothing here is changed
+            automatically.
+          </DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-12" />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No duplicates detected.</p>
+        ) : (
+          <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+            {groups.map((group, i) => (
+              <Card key={i}>
+                <CardContent className="flex flex-col gap-1 p-3">
+                  <Badge variant="outline" className="w-fit capitalize">
+                    {group.reason.replaceAll("_", " ")}
+                  </Badge>
+                  <ul className="text-sm">
+                    {group.poster_ids.map((id) => (
+                      <li key={id} className="truncate text-muted-foreground">
+                        {posterTitles[id] ?? id}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BulkEditDialog({
+  open,
+  onOpenChange,
+  count,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  count: number;
+  onConfirm: (fields: { district?: string | null; estate?: string | null; poster_type?: string | null }) => void;
+}) {
+  const [district, setDistrict] = useState("");
+  const [estate, setEstate] = useState("");
+  const [posterType, setPosterType] = useState("");
+
+  function handleConfirm() {
+    onConfirm({
+      district: district.trim() || undefined,
+      estate: estate.trim() || undefined,
+      poster_type: posterType.trim() || undefined,
+    });
+    setDistrict("");
+    setEstate("");
+    setPosterType("");
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Bulk edit {count} record(s)</DialogTitle>
+          <DialogDescription>Only fields you fill in are changed - leave a field blank to leave it as-is.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>District</Label>
+            <Input value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Leave blank to keep unchanged" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Estate</Label>
+            <Input value={estate} onChange={(e) => setEstate(e.target.value)} placeholder="Leave blank to keep unchanged" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Poster type</Label>
+            <Input value={posterType} onChange={(e) => setPosterType(e.target.value)} placeholder="Leave blank to keep unchanged" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleConfirm}>Apply</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -881,6 +1110,9 @@ function PosterEditDialog({
   const [route, setRoute] = useState(poster?.route_number ?? "");
   const [dropboxUrl, setDropboxUrl] = useState(poster?.dropbox_url ?? "");
   const [notes, setNotes] = useState(poster?.notes ?? "");
+  const [campaignName, setCampaignName] = useState(poster?.campaign_name ?? "");
+  const [governmentDepartment, setGovernmentDepartment] = useState(poster?.government_department ?? "");
+  const [version, setVersion] = useState(poster?.version ?? "");
   const [folderId, setFolderId] = useState<string | null>(poster ? poster.folder_id : defaultFolderId);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folderName, setFolderName] = useState<string | null>(null);
@@ -908,6 +1140,9 @@ function PosterEditDialog({
       route_number: route || null,
       dropbox_url: dropboxUrl || null,
       notes: notes || null,
+      campaign_name: campaignName || null,
+      government_department: governmentDepartment || null,
+      version: version || null,
       folder_id: folderId,
     };
     try {
@@ -953,6 +1188,18 @@ function PosterEditDialog({
           <div className="flex flex-col gap-1.5">
             <Label>Route number</Label>
             <Input value={route} onChange={(e) => setRoute(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Campaign name</Label>
+            <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Government department</Label>
+            <Input value={governmentDepartment} onChange={(e) => setGovernmentDepartment(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Version</Label>
+            <Input value={version} onChange={(e) => setVersion(e.target.value)} />
           </div>
           <div className="col-span-2 flex flex-col gap-1.5">
             <Label>Dropbox URL</Label>

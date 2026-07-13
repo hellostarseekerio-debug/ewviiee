@@ -63,16 +63,48 @@ def test_head_schema_has_folders_posters_folder_id_and_export_jobs():
     assert "folders" in tables
     assert "starred_items" in tables
     assert "export_jobs" in tables
+    assert "poster_link_history" in tables
 
     poster_columns = {c["name"] for c in inspector.get_columns("posters")}
     assert "folder_id" in poster_columns
     assert "status" in poster_columns  # Phase 1's column, still present
+    assert "campaign_name" in poster_columns
+    assert "government_department" in poster_columns
+    assert "version" in poster_columns
+    assert "source" in poster_columns
+    assert "needs_review" in poster_columns
+    assert "dropbox_link_broken" in poster_columns
+    assert "dropbox_last_verified_at" in poster_columns
 
 
-def test_downgrading_one_step_removes_folder_support_cleanly():
-    """Downgrading from head by one revision (0007 -> 0006) must cleanly
-    remove folders/starred_items/export_jobs and posters.folder_id without
-    error, leaving 0006's schema (Phase 1's status column) intact."""
+def test_downgrading_to_0006_removes_folder_support_cleanly():
+    """Downgrading from head to 0006 must cleanly remove folders/
+    starred_items/export_jobs, posters.folder_id, and 0008's extended
+    metadata columns, leaving 0006's schema (Phase 1's status column)
+    intact. Targets "0006" explicitly (not "-1") so this keeps checking
+    the same thing as new migrations are appended after 0008."""
+    cfg = _alembic_config()
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0006")
+
+    engine = sa.create_engine(f"sqlite:///{_current_db_path()}")
+    inspector = sa.inspect(engine)
+    tables = set(inspector.get_table_names())
+    assert "folders" not in tables
+    assert "export_jobs" not in tables
+    assert "poster_link_history" not in tables
+
+    poster_columns = {c["name"] for c in inspector.get_columns("posters")}
+    assert "folder_id" not in poster_columns
+    assert "campaign_name" not in poster_columns
+    assert "needs_review" not in poster_columns
+    assert "status" in poster_columns
+
+
+def test_downgrading_one_step_from_head_removes_extended_metadata():
+    """Downgrading from head by one revision (0008 -> 0007) must cleanly
+    remove the extended-metadata columns and poster_link_history, leaving
+    folders/status intact."""
     cfg = _alembic_config()
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "-1")
@@ -80,12 +112,13 @@ def test_downgrading_one_step_removes_folder_support_cleanly():
     engine = sa.create_engine(f"sqlite:///{_current_db_path()}")
     inspector = sa.inspect(engine)
     tables = set(inspector.get_table_names())
-    assert "folders" not in tables
-    assert "export_jobs" not in tables
+    assert "folders" in tables
+    assert "poster_link_history" not in tables
 
     poster_columns = {c["name"] for c in inspector.get_columns("posters")}
-    assert "folder_id" not in poster_columns
-    assert "status" in poster_columns
+    assert "folder_id" in poster_columns
+    assert "campaign_name" not in poster_columns
+    assert "needs_review" not in poster_columns
 
 
 def test_migrated_database_can_store_a_folder_and_a_filed_poster():

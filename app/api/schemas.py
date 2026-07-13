@@ -169,6 +169,19 @@ class DashboardStats(BaseModel):
     ai_usage_local: int
     recent_activity: list[dict]
 
+    # --- Phase 2B additions --------------------------------------------------
+    total_posters: int
+    posters_by_district: dict[str, int]
+    posters_by_estate: dict[str, int]
+    posters_by_status: dict[str, int]
+    recent_poster_uploads: list[dict]
+    broken_dropbox_links: int
+    duplicate_poster_groups: int
+    downloads_today: int
+    pending_reviews: int
+    most_active_users: list[dict]
+    export_storage_bytes: int
+
 
 # --- Poster Archive (app/posters/parser.py, app/api/routes/posters.py) -----
 
@@ -199,6 +212,13 @@ class PosterOut(BaseModel):
     approval_status: str
     status: str
     folder_id: str | None
+    campaign_name: str | None
+    government_department: str | None
+    version: str | None
+    source: str | None
+    needs_review: bool
+    dropbox_link_broken: bool | None
+    dropbox_last_verified_at: datetime | None
     ai_summary: str | None
     ocr_text: str | None
     attachments: list[dict] | None
@@ -229,9 +249,13 @@ class PosterCreateRequest(BaseModel):
     keywords: list[str] | None = None
     notes: str | None = None
     workflow_steps: list[WorkflowStep] | None = None
-    # Explicit destination overrides the Year/Month/District/Estate
-    # auto-suggestion (app/folders/suggestions.py) - omit to let the
-    # system file it automatically based on district/estate/document_date.
+    campaign_name: str | None = None
+    government_department: str | None = None
+    version: str | None = None
+    # Explicit destination overrides the Year/Month/District/Estate/Poster-
+    # Type auto-suggestion (app/folders/suggestions.py) - omit to let the
+    # system file it automatically based on district/estate/poster_type/
+    # document_date.
     folder_id: str | None = None
 
     @field_validator("dropbox_url")
@@ -258,6 +282,12 @@ class PosterUpdateRequest(BaseModel):
     notes: str | None = None
     workflow_steps: list[WorkflowStep] | None = None
     approval_status: str | None = None
+    campaign_name: str | None = None
+    government_department: str | None = None
+    version: str | None = None
+    # Lets an Editor manually clear the parser's low-confidence flag once
+    # they've confirmed the record is fine (or re-flag it themselves).
+    needs_review: bool | None = None
     folder_id: str | None = None
 
     @field_validator("dropbox_url")
@@ -314,6 +344,45 @@ class PosterBulkDeleteRequest(BaseModel):
 class PosterBulkMoveRequest(BaseModel):
     ids: list[str] = Field(..., min_length=1, max_length=1000)
     folder_id: str | None = None  # None = move to root (unfiled)
+
+
+class PosterBulkFieldUpdateRequest(BaseModel):
+    """Bulk retag/reclassify - only the fields actually provided are
+    changed across every listed record; omitted fields are left alone."""
+
+    ids: list[str] = Field(..., min_length=1, max_length=1000)
+    district: str | None = None
+    estate: str | None = None
+    poster_type: str | None = None
+    add_keywords: list[str] | None = None
+
+
+class PosterBulkStatusRequest(BaseModel):
+    ids: list[str] = Field(..., min_length=1, max_length=1000)
+    status: str
+    force: bool = False
+
+
+class DuplicateGroupOut(BaseModel):
+    reason: str
+    poster_ids: list[str]
+    detail: str
+
+
+class LinkVerifyResultOut(BaseModel):
+    poster_id: str
+    dropbox_link_broken: bool | None
+    dropbox_last_verified_at: datetime | None
+
+
+class PosterLinkHistoryOut(BaseModel):
+    id: str
+    old_url: str | None
+    new_url: str | None
+    changed_by: str | None
+    changed_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 # --- Folders: app/folders/service.py - generic, not poster-specific ------

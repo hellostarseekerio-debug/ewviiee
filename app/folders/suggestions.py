@@ -1,6 +1,7 @@
-"""Automatic Year -> Month -> District -> Estate folder suggestion for
-imported/created posters (Phase 2 item #2). Missing segments (an
-unresolved district/estate, or an unimportable folder name) degrade to an
+"""Automatic Year -> Month -> District -> Estate -> Poster Type folder
+suggestion for imported/created posters (Phase 2 item #2, extended in
+Phase 2B with the Poster Type level). Missing segments (an unresolved
+district/estate/type, or an unimportable folder name) degrade to an
 explicit "Unfiled ..." placeholder segment rather than silently skipping
 the record's filing altogether or crashing the import.
 
@@ -20,19 +21,39 @@ from app.folders.service import create_folder, list_children
 
 ROOT_FOLDER_NAME = "Poster Archive"
 
+# app.posters.parser stores poster_type as a machine slug ("transport_
+# notice"); folders should read as a label a human would recognize.
+_POSTER_TYPE_FOLDER_LABELS = {
+    "poster": "Poster",
+    "notice": "Notice",
+    "announcement": "Announcement",
+    "flyer": "Flyer",
+    "transport_notice": "Transport Notice",
+    "housing_notice": "Housing Notice",
+    "government_announcement": "Government Announcement",
+}
+
+
+def _poster_type_folder_name(poster_type: str | None) -> str:
+    if not poster_type:
+        return "Unfiled type"
+    return _POSTER_TYPE_FOLDER_LABELS.get(poster_type, poster_type.replace("_", " ").title())
+
 
 def suggest_poster_path_segments(
-    *, district: str | None, estate: str | None, document_date: datetime | None
+    *, district: str | None, estate: str | None, poster_type: str | None, document_date: datetime | None
 ) -> list[str]:
     """Ordered path segments under the shared root: Year -> Month ->
-    District -> Estate. Uses today's date when no document_date was
-    extracted, rather than leaving the record undated in the tree."""
+    District -> Estate -> Poster Type. Uses today's date when no
+    document_date was extracted, rather than leaving the record undated
+    in the tree."""
     date = document_date or datetime.utcnow()
     return [
         str(date.year),
         date.strftime("%m - %B"),
         (district or "Unfiled district").strip(),
         (estate or "Unfiled estate").strip(),
+        _poster_type_folder_name(poster_type),
     ]
 
 
@@ -62,6 +83,7 @@ def resolve_or_create_poster_folder(
     folder_id_override: str | None,
     district: str | None,
     estate: str | None,
+    poster_type: str | None = None,
     document_date: datetime | None,
     created_by: str | None,
 ) -> str | None:
@@ -71,6 +93,8 @@ def resolve_or_create_poster_folder(
     per the requirement that auto-filing is a default, not a mandate."""
     if folder_id_override:
         return folder_id_override
-    segments = suggest_poster_path_segments(district=district, estate=estate, document_date=document_date)
+    segments = suggest_poster_path_segments(
+        district=district, estate=estate, poster_type=poster_type, document_date=document_date
+    )
     folder = get_or_create_path(db, segments, created_by=created_by)
     return folder.id

@@ -176,6 +176,7 @@ def test_creating_poster_without_folder_id_auto_files_it(bootstrap_admin):
             "poster_title": "Auto-filed",
             "district": "Sha Tin",
             "estate": "Yue Chui Court",
+            "poster_type": "notice",
             "document_date": "2026-07-07T00:00:00",
             "dropbox_url": "https://www.dropbox.com/scl/fo/autofile-test",
         },
@@ -186,9 +187,9 @@ def test_creating_poster_without_folder_id_auto_files_it(bootstrap_admin):
     assert poster["folder_id"] is not None
 
     detail = client.get(f"/api/folders/{poster['folder_id']}", headers=headers).json()
-    assert detail["folder"]["name"] == "Yue Chui Court"
+    assert detail["folder"]["name"] == "Notice"
     names = [f["name"] for f in detail["breadcrumbs"]]
-    assert names == ["Poster Archive", "2026", "07 - July", "Sha Tin", "Yue Chui Court"]
+    assert names == ["Poster Archive", "2026", "07 - July", "Sha Tin", "Yue Chui Court", "Notice"]
 
 
 def test_creating_poster_with_explicit_folder_id_overrides_suggestion(bootstrap_admin):
@@ -210,8 +211,10 @@ def test_creating_poster_with_explicit_folder_id_overrides_suggestion(bootstrap_
 
 def test_repeat_imports_reuse_the_same_auto_created_folders(bootstrap_admin):
     client, headers = bootstrap_admin
+    # Both lines use "通告" (notice) so they share district/estate/type/
+    # month and land in the same auto-created folder chain.
     text = (
-        "沙田 20260707-海報-好消息-73H-愉翠苑來往大埔富蝶邨\n"
+        "沙田 20260707-通告-73H-愉翠苑來往大埔富蝶邨\n"
         "https://www.dropbox.com/scl/fo/reuse-folder-1\n"
         "沙田 20260708-通告-73H-愉翠苑\n"
         "https://www.dropbox.com/scl/fo/reuse-folder-2\n"

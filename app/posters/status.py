@@ -1,26 +1,30 @@
-"""Poster Archive status lifecycle: the allowed-transition graph, the
+r"""Poster Archive status lifecycle: the allowed-transition graph, the
 minimum role required for each transition, and the mapping back onto the
 legacy `approval_status` field kept in sync during its deprecation cycle
 (see PosterStatus's docstring in app/core/models.py).
 
 Lifecycle: draft -> pending_review -> approved -> published -> archived,
-with rejected/resubmit branches. Diagrammed here rather than left implicit
-in a dict, since this *is* the product-facing behavior, not an
-implementation detail:
+with rejected/needs_changes/resubmit branches. Diagrammed here rather than
+left implicit in a dict, since this *is* the product-facing behavior, not
+an implementation detail:
 
     draft ------------------> pending_review
-                                |    ^  |
-                      approve --+    |  +-- reject
-                                v    |  v
-                            approved-+  rejected
-                                |          |
-                     publish -- +          +-- (resubmit)
-                                v
-                            published
+                                |    ^  |  \
+                      approve --+    |  |   \-- request changes
+                                v    |  |         v
+                            approved-+  |     needs_changes
+                                |       |          |
+                     publish -- +       +-- reject +-- (resubmit)
+                                v            v
+                            published    rejected
                                 |
                        archive -+
                                 v
                             archived (terminal)
+
+`needs_changes` differs from `rejected`: it's a reviewer asking for a
+revision on an otherwise viable record (expected to be resubmitted), where
+`rejected` is a harder stop. Both are review verdicts gated the same way.
 """
 from __future__ import annotations
 
@@ -29,20 +33,27 @@ from app.core.status_workflow import validate_transition
 
 POSTER_STATUS_TRANSITIONS: dict[PosterStatus, set[PosterStatus]] = {
     PosterStatus.DRAFT: {PosterStatus.PENDING_REVIEW},
-    PosterStatus.PENDING_REVIEW: {PosterStatus.APPROVED, PosterStatus.REJECTED, PosterStatus.DRAFT},
+    PosterStatus.PENDING_REVIEW: {
+        PosterStatus.APPROVED,
+        PosterStatus.REJECTED,
+        PosterStatus.NEEDS_CHANGES,
+        PosterStatus.DRAFT,
+    },
+    PosterStatus.NEEDS_CHANGES: {PosterStatus.DRAFT, PosterStatus.PENDING_REVIEW},
     PosterStatus.APPROVED: {PosterStatus.PUBLISHED, PosterStatus.PENDING_REVIEW},
     PosterStatus.PUBLISHED: {PosterStatus.ARCHIVED},
     PosterStatus.REJECTED: {PosterStatus.DRAFT, PosterStatus.PENDING_REVIEW},
     PosterStatus.ARCHIVED: set(),
 }
 
-# Only the review verdicts themselves (approve/reject) are gated at the
-# Reviewer role - every other transition is an editing/operational action
-# and uses the same Editor+ bar as creating/updating a poster record.
-# Note _ROLE_RANK (app/core/security.py) ranks Reviewer *below* Editor, so
-# "Reviewer+" here means "Reviewer, Editor, or Admin", matching the
-# existing convention on Document approve/reject (app/api/routes/documents.py).
-_REVIEW_VERDICT_STATUSES = {PosterStatus.APPROVED, PosterStatus.REJECTED}
+# Only the review verdicts themselves (approve/reject/needs_changes) are
+# gated at the Reviewer role - every other transition is an editing/
+# operational action and uses the same Editor+ bar as creating/updating a
+# poster record. Note _ROLE_RANK (app/core/security.py) ranks Reviewer
+# *below* Editor, so "Reviewer+" here means "Reviewer, Editor, or Admin",
+# matching the existing convention on Document approve/reject
+# (app/api/routes/documents.py).
+_REVIEW_VERDICT_STATUSES = {PosterStatus.APPROVED, PosterStatus.REJECTED, PosterStatus.NEEDS_CHANGES}
 
 
 def required_role_for_transition(new: PosterStatus) -> UserRole:

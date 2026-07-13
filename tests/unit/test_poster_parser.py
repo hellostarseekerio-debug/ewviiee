@@ -7,7 +7,15 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import get_settings
-from app.posters.parser import parse_block, parse_poster_text, split_into_blocks
+from app.posters.parser import (
+    _extract_government_department,
+    _extract_route,
+    _extract_title,
+    _extract_version,
+    parse_block,
+    parse_poster_text,
+    split_into_blocks,
+)
 from app.rules.engine import RuleEngine, load_ruleset
 
 
@@ -270,3 +278,81 @@ def test_three_records_back_to_back_all_associate_correctly(rule_engine):
     assert results[0].district == "Sha Tin"
     assert results[1].district == "Kwun Tong"
     assert results[2].district == "Wong Tai Sin"
+
+
+# ---------------------------------------------------------------------------
+# Phase 2B: parser bug fixes (garbage route/title values) and new fields
+# (version, government department, needs_review confidence flagging).
+# ---------------------------------------------------------------------------
+
+
+def test_bare_single_digit_route_is_rejected_as_noise():
+    """The real-world false positive this guards against: a version marker
+    like "版 2" tokenizing as a standalone route "2" once whitespace
+    separates the digit from its prefix."""
+    assert _extract_route("好消息 版 2 沙田") is None
+
+
+def test_two_digit_or_lettered_routes_still_extracted():
+    assert _extract_route("73H 巴士路線") == "73H"
+    assert _extract_route("路線 12 開出") == "12"
+
+
+def test_title_that_is_only_punctuation_returns_none_not_a_dash():
+    assert _extract_title("-") is None
+    assert _extract_title("- - -") is None
+    assert _extract_title("   ") is None
+
+
+def test_title_with_real_content_is_not_affected_by_punctuation_fix():
+    assert _extract_title("20260707-海報-好消息") == "20260707-海報-好消息"
+
+
+def test_extract_version_v_prefix():
+    assert _extract_version("housing_notice_v2.pdf") == "2"
+    assert _extract_version("Notice V2.1 final") == "2.1"
+
+
+def test_extract_version_chinese_forms():
+    assert _extract_version("屋邨通告第2版") == "2"
+    assert _extract_version("屋邨通告 版3") == "3"
+
+
+def test_extract_version_absent_returns_none():
+    assert _extract_version("no version marker here") is None
+
+
+def test_extract_government_department():
+    assert _extract_government_department("運輸署交通通告") == "運輸署"
+    assert _extract_government_department("房屋署屋邨通告") == "房屋署"
+    assert _extract_government_department("no department mentioned") is None
+
+
+def test_needs_review_flagged_when_nothing_identifying_resolved(rule_engine):
+    """A block whose metadata line is pure noise (no district, no estate,
+    no usable title) must be flagged for manual review rather than
+    silently stored as if it were confidently parsed."""
+    block = "@@@ ### !!! \nhttps://www.dropbox.com/scl/fi/noise/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine)
+    assert parsed is not None
+    assert parsed.needs_review is True
+
+
+def test_needs_review_false_when_district_resolved(rule_engine):
+    parsed = parse_block(
+        "沙田 20260707-海報-好消息-73H-愉翠苑\nhttps://www.dropbox.com/scl/fi/good/poster.pdf?dl=0",
+        rule_engine,
+    )
+    assert parsed is not None
+    assert parsed.needs_review is False
+
+
+def test_transport_and_housing_notice_poster_types(rule_engine):
+    transport = parse_block(
+        "沙田 交通通告 73H\nhttps://www.dropbox.com/scl/fi/transport/poster.pdf?dl=0", rule_engine
+    )
+    housing = parse_block(
+        "沙田 房屋通告 愉翠苑\nhttps://www.dropbox.com/scl/fi/housing/poster.pdf?dl=0", rule_engine
+    )
+    assert transport is not None and transport.poster_type == "transport_notice"
+    assert housing is not None and housing.poster_type == "housing_notice"

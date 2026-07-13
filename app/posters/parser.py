@@ -41,6 +41,18 @@ _BRACKET_RE = re.compile(r"[【\[](.+?)[】\]]|「(.+?)」")
 _ROUTE_RE = re.compile(r"\b(\d{1,4}[A-Z]{0,2})\b")
 
 _POSTER_TYPE_KEYWORDS = {
+    # More specific categories checked before their generic counterparts
+    # (dict order is preserved in Python 3.7+, and _extract_poster_type
+    # returns the first keyword found) - "交通通告" must win over the bare
+    # "通告" it contains, or every transport notice would be miscategorized
+    # as a generic notice.
+    "交通通告": "transport_notice",
+    "运输通告": "transport_notice",
+    "運輸通告": "transport_notice",
+    "房屋通告": "housing_notice",
+    "屋邨通告": "housing_notice",
+    "屋苑通告": "housing_notice",
+    "政府公告": "government_announcement",
     "海報": "poster",
     "海报": "poster",
     "通告": "notice",
@@ -49,7 +61,43 @@ _POSTER_TYPE_KEYWORDS = {
     "单张": "flyer",
 }
 
+# Common Hong Kong government department names/abbreviations, matched as a
+# best-effort substring check - same "deterministic first" spirit as the
+# district/estate suffix fallbacks above, not an exhaustive directory.
+_GOV_DEPARTMENT_KEYWORDS = {
+    "民政事務處": "民政事務處",
+    "民政事务处": "民政事务处",
+    "房屋署": "房屋署",
+    "運輸署": "運輸署",
+    "运输署": "运输署",
+    "康樂及文化事務署": "康樂及文化事務署",
+    "康乐及文化事务署": "康乐及文化事务署",
+    "食物環境衞生署": "食物環境衞生署",
+    "食物环境卫生署": "食物环境卫生署",
+    "地政總署": "地政總署",
+    "地政总署": "地政总署",
+    "警務處": "警務處",
+    "警务处": "警务处",
+    "立法會": "立法會",
+    "立法会": "立法会",
+}
+
+# "v2" / "V2.1" / "第2版" / "版2" - the version-marker styles actually seen
+# in poster filenames/titles, mirroring app/plugins/housing_estate_poster/
+# plugin.py's `_TITLE_PATTERN` (kept independent since that one also
+# captures a title group this module extracts separately).
+_VERSION_RE = re.compile(r"(?:[vV](\d+(?:\.\d+)?))|(?:第\s*(\d+)\s*版)|(?:版\s*(\d+))")
+
 _STOPWORDS = {"", "-", "來往", "来往", "路線", "路线"}
+
+# A route-number match must be at least 2 characters (digits+optional
+# letters) to be trusted - a bare single digit ("2") is far more often a
+# stray version/page number than a real route, per real-world false
+# positives seen in production pastes (e.g. "版 2" tokenizing as route "2"
+# once whitespace separates it from "版"). Genuine single-digit minibus
+# routes exist but are rare enough that this tradeoff favors not
+# mis-tagging a version number as a route.
+_MIN_ROUTE_LENGTH = 2
 
 # Zero-width/invisible characters that survive copy-paste from web pages,
 # Notion, Word, etc. (zero-width space, ZWNJ/ZWJ, word joiner, BOM). A
@@ -86,7 +134,14 @@ class ParsedPoster:
     """One record extracted from a pasted block. `dropbox_url` and
     `source_text` are always populated (a block is only ever turned into a
     ParsedPoster once a Dropbox link is confirmed present) - every other
-    field is best-effort and may be None."""
+    field is best-effort and may be None.
+
+    `campaign_name` has no reliable regex/keyword heuristic (unlike
+    district/estate/department, campaign names aren't drawn from a small,
+    enumerable vocabulary) and is deliberately left for manual entry
+    rather than guessed - see this module's docstring's "leave it blank
+    instead of crashing" policy, which extends to "leave it blank instead
+    of guessing wrong"."""
 
     dropbox_url: str
     source_text: str
@@ -97,8 +152,12 @@ class ParsedPoster:
     route_number: str | None = None
     document_date: datetime | None = None
     language: str | None = None
+    version: str | None = None
+    government_department: str | None = None
+    campaign_name: str | None = None
     keywords: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    needs_review: bool = False
 
 
 def _extract_date(text: str) -> datetime | None:
@@ -116,8 +175,17 @@ def _extract_route(text: str) -> str | None:
         token = match.group(1)
         if token.isdigit() and len(token) > 3:
             continue  # a bare 4+ digit run is a date/id, not a route code
+        if len(token) < _MIN_ROUTE_LENGTH:
+            continue  # a bare single digit is far more often a stray version/page number
         return token
     return None
+
+
+# After every other cleanup, a title made of nothing but punctuation/
+# whitespace (e.g. a lone "-" left over from stripping) is not a title -
+# it's the parser having found nothing, and must fall through to None
+# rather than store useless punctuation as if it meant something.
+_PUNCTUATION_ONLY_RE = re.compile(r"^[\-–—_.,:：、，\s]*$")
 
 
 def _extract_title(text: str, district_tokens: list[str] | None = None) -> str | None:
@@ -133,7 +201,9 @@ def _extract_title(text: str, district_tokens: list[str] | None = None) -> str |
             if rest:
                 stripped = rest
             break
-    return stripped or None
+    if not stripped or _PUNCTUATION_ONLY_RE.match(stripped):
+        return None
+    return stripped
 
 
 def _detect_language(text: str) -> str | None:
@@ -153,6 +223,31 @@ def _extract_poster_type(text: str) -> str | None:
         if keyword in text:
             return poster_type
     return None
+
+
+def _extract_version(text: str) -> str | None:
+    match = _VERSION_RE.search(text)
+    if not match:
+        return None
+    return next(g for g in match.groups() if g is not None)
+
+
+def _extract_government_department(text: str) -> str | None:
+    for keyword, department in _GOV_DEPARTMENT_KEYWORDS.items():
+        if keyword in text:
+            return department
+    return None
+
+
+_HAS_MEANINGFUL_CONTENT_RE = re.compile(r"[一-鿿A-Za-z0-9]")
+
+
+def _is_garbage_title(title: str | None) -> bool:
+    """A title with no CJK character and no Latin letter/digit at all
+    (e.g. "@@@ ### !!!") carries no real information - treated the same
+    as no title for confidence purposes, even though _extract_title's
+    fallback branch technically returned a non-empty string for it."""
+    return title is None or not _HAS_MEANINGFUL_CONTENT_RE.search(title)
 
 
 def _extract_estate_fallback(text: str) -> str | None:
@@ -287,10 +382,35 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
         parsed.warnings.append("title_extraction_failed")
 
     try:
+        parsed.version = _extract_version(text_only)
+    except Exception:
+        parsed.warnings.append("version_extraction_failed")
+
+    try:
+        parsed.government_department = _extract_government_department(text_only)
+    except Exception:
+        parsed.warnings.append("government_department_extraction_failed")
+
+    try:
         already = [v for v in (parsed.district, parsed.estate, parsed.route_number) if v]
         parsed.keywords = _extract_keywords(text_only, already)
     except Exception:
         parsed.warnings.append("keyword_extraction_failed")
+
+    # Confidence check: if none of the record's three most identifying
+    # fields resolved, there's a real chance the metadata line didn't
+    # match the expected shape at all (garbled paste, an unsupported
+    # format, noise). _extract_title's fallback branch returns whatever
+    # text remains even when it's meaningless symbols ("@@@ ### !!!"), so
+    # "title is falsy" alone doesn't catch that case - _is_garbage_title
+    # additionally treats a title with no CJK character and no Latin
+    # letter/digit as equivalent to no title at all. Rather than silently
+    # inserting a record that's effectively "district: none, estate: none,
+    # title: noise", flag it so a human confirms it before it's trusted -
+    # per the requirement to never insert low-confidence data as if it
+    # were reliable.
+    if parsed.district is None and parsed.estate is None and _is_garbage_title(parsed.poster_title):
+        parsed.needs_review = True
 
     return parsed
 

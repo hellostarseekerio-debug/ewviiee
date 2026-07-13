@@ -29,12 +29,17 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_rule_engine, require_role
 from app.api.rate_limit import limiter
 from app.api.schemas import (
+    DuplicateGroupOut,
+    LinkVerifyResultOut,
     PosterBulkDeleteRequest,
+    PosterBulkFieldUpdateRequest,
     PosterBulkMoveRequest,
+    PosterBulkStatusRequest,
     PosterCreateRequest,
     PosterImportRequest,
     PosterImportResponse,
     PosterImportResult,
+    PosterLinkHistoryOut,
     PosterListResponse,
     PosterOut,
     PosterStatusChangeRequest,
@@ -45,17 +50,19 @@ from app.api.schemas import (
 from app.core.config import get_settings
 from app.core.database import get_db, session_scope
 from app.core.logging_config import record_audit
-from app.core.models import ExportJob, ExportJobStatus, Poster, PosterStatus, UserRole
+from app.core.models import ExportJob, ExportJobStatus, Poster, PosterLinkHistory, PosterStatus, UserRole
 from app.core.security import role_rank
 from app.core.status_workflow import StatusTransitionError
 from app.folders.service import FolderNotFoundError, get_folder_or_raise, subtree_folder_ids
 from app.folders.suggestions import resolve_or_create_poster_folder
+from app.posters.duplicates import find_all_duplicates
 from app.posters.parser import parse_poster_text
 from app.posters.status import approval_status_for, required_role_for_transition, validate_poster_transition
 from app.posters.validation import InvalidDropboxUrlError, assert_valid_dropbox_url
 from app.rules.engine import RuleEngine
 from app.storage.archive_zip import ExportableRecord, ZipExportLimitError, build_zip_export
 from app.storage.download_service import build_default_download_service
+from app.storage.providers.dropbox import DropboxStorageProvider
 
 router = APIRouter(prefix="/api/posters", tags=["posters"])
 
@@ -122,6 +129,7 @@ def import_posters(
             cache_key = (
                 parsed.district,
                 parsed.estate,
+                parsed.poster_type,
                 parsed.document_date.strftime("%Y-%m") if parsed.document_date else None,
             )
             if cache_key not in folder_cache:
@@ -130,6 +138,7 @@ def import_posters(
                     folder_id_override=None,
                     district=parsed.district,
                     estate=parsed.estate,
+                    poster_type=parsed.poster_type,
                     document_date=parsed.document_date,
                     created_by=current_user.username,
                 )
@@ -147,6 +156,10 @@ def import_posters(
             keywords=parsed.keywords or None,
             source_text=parsed.source_text,
             folder_id=folder_id,
+            version=parsed.version,
+            government_department=parsed.government_department,
+            needs_review=parsed.needs_review,
+            source="paste_import",
         )
         to_insert.append(poster)
         results.append(PosterImportResult(dropbox_url=parsed.dropbox_url, status="imported"))
@@ -240,21 +253,82 @@ def search_posters(
                 Poster.poster_title.ilike(like),
                 Poster.district.ilike(like),
                 Poster.estate.ilike(like),
+                Poster.poster_type.ilike(like),
                 Poster.route_number.ilike(like),
                 Poster.dropbox_url.ilike(like),
                 Poster.notes.ilike(like),
+                Poster.campaign_name.ilike(like),
+                Poster.government_department.ilike(like),
             )
         )
     try:
-        query = _apply_filters(
+        filtered_query = _apply_filters(
             query, district, poster_type, date_from, date_to, has_dropbox,
             db=db, folder_id=folder_id, recursive=recursive, poster_status=poster_status,
         )
     except FolderNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    total = query.count()
-    results = query.order_by(Poster.created_at.desc()).offset(skip).limit(limit).all()
+    total = filtered_query.count()
+
+    # Fuzzy fallback: an exact ILIKE match found nothing, but the query
+    # might just be a typo, OCR noise, or mixed Chinese/English spelling -
+    # exactly the case app/rules/fuzzy.py already exists to handle for
+    # district/estate resolution. Only runs on a genuine zero-result exact
+    # search, so the common case (an exact match exists) pays no extra
+    # cost; bounded to the same result-set size other searches are, so it
+    # can't become an unbounded full-archive scan.
+    if q and total == 0:
+        return _fuzzy_fallback_search(
+            db, q,
+            district=district, poster_type=poster_type, date_from=date_from, date_to=date_to,
+            has_dropbox=has_dropbox, folder_id=folder_id, recursive=recursive, poster_status=poster_status,
+            skip=skip, limit=limit,
+        )
+
+    results = filtered_query.order_by(Poster.created_at.desc()).offset(skip).limit(limit).all()
     return PosterListResponse(total=total, results=results)
+
+
+_FUZZY_SEARCH_SCAN_LIMIT = 2000
+_FUZZY_SEARCH_THRESHOLD = 0.6
+
+
+def _fuzzy_fallback_search(
+    db: Session,
+    q: str,
+    *,
+    district: str | None,
+    poster_type: str | None,
+    date_from: datetime | None,
+    date_to: datetime | None,
+    has_dropbox: bool | None,
+    folder_id: str | None,
+    recursive: bool,
+    poster_status: str | None,
+    skip: int,
+    limit: int,
+) -> PosterListResponse:
+    from app.rules.fuzzy import similarity
+
+    candidates_query = _apply_filters(
+        db.query(Poster), district, poster_type, date_from, date_to, has_dropbox,
+        db=db, folder_id=folder_id, recursive=recursive, poster_status=poster_status,
+    )
+    candidates = (
+        candidates_query.order_by(Poster.created_at.desc()).limit(_FUZZY_SEARCH_SCAN_LIMIT).all()
+    )
+
+    scored: list[tuple[float, Poster]] = []
+    for poster in candidates:
+        fields = [poster.poster_title, poster.district, poster.estate, *(poster.keywords or [])]
+        best = max((similarity(q, f) for f in fields if f), default=0.0)
+        if best >= _FUZZY_SEARCH_THRESHOLD:
+            scored.append((best, poster))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    total = len(scored)
+    page = [poster for _, poster in scored[skip : skip + limit]]
+    return PosterListResponse(total=total, results=page)
 
 
 @router.get("/export")
@@ -512,6 +586,133 @@ def bulk_move_posters(
     return {"moved": moved}
 
 
+@router.post("/bulk-update", status_code=status.HTTP_200_OK)
+def bulk_update_posters(
+    payload: PosterBulkFieldUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.EDITOR)),
+):
+    """Bulk retag/reclassify: change district/estate/poster_type and/or
+    append keywords across every listed record in as few statements as
+    possible. Fields left unset in the payload are untouched."""
+    field_updates = {
+        k: v
+        for k, v in {"district": payload.district, "estate": payload.estate, "poster_type": payload.poster_type}.items()
+        if v is not None
+    }
+    updated = 0
+    if field_updates:
+        updated = (
+            db.query(Poster).filter(Poster.id.in_(payload.ids)).update(field_updates, synchronize_session=False)
+        )
+
+    if payload.add_keywords:
+        posters = db.query(Poster).filter(Poster.id.in_(payload.ids)).all()
+        for poster in posters:
+            existing = poster.keywords or []
+            merged = existing + [k for k in payload.add_keywords if k not in existing]
+            poster.keywords = merged
+        updated = max(updated, len(posters))
+
+    db.commit()
+    record_audit(
+        actor=current_user.username, action="poster_bulk_updated",
+        detail={"requested": len(payload.ids), "updated": updated, "fields": list(field_updates.keys())},
+    )
+    return {"updated": updated}
+
+
+@router.post("/bulk-status", status_code=status.HTTP_200_OK)
+def bulk_change_poster_status(
+    payload: PosterBulkStatusRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.REVIEWER)),
+):
+    """Bulk counterpart of POST /{poster_id}/status - same validated
+    transition graph and role gate per record, applied individually so one
+    poster with an invalid transition never blocks the rest of the batch."""
+    try:
+        new_status = PosterStatus(payload.status)
+    except ValueError:
+        valid = ", ".join(s.value for s in PosterStatus)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown status '{payload.status}' (valid: {valid})")
+
+    required_role = required_role_for_transition(new_status)
+    if role_rank(current_user.role) < role_rank(required_role):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Changing status to '{new_status.value}' requires the {required_role.value} role or above",
+        )
+    is_admin_force = payload.force and role_rank(current_user.role) >= role_rank(UserRole.ADMIN)
+
+    changed = 0
+    skipped: list[str] = []
+    posters = db.query(Poster).filter(Poster.id.in_(payload.ids)).all()
+    for poster in posters:
+        try:
+            validate_poster_transition(poster.status, new_status, force=is_admin_force)
+        except StatusTransitionError:
+            skipped.append(poster.id)
+            continue
+        poster.status = new_status
+        poster.approval_status = approval_status_for(new_status)
+        changed += 1
+    db.commit()
+
+    record_audit(
+        actor=current_user.username, action="poster_bulk_status_changed",
+        detail={"requested": len(payload.ids), "changed": changed, "skipped": len(skipped), "to": new_status.value},
+    )
+    return {"changed": changed, "skipped": skipped}
+
+
+@router.get("/duplicates", response_model=list[DuplicateGroupOut])
+def list_duplicate_posters(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Surfaces exact-Dropbox-link and similar-title duplicate groups (see
+    app/posters/duplicates.py) for manual merge review - never merges
+    automatically, since deciding which record is authoritative is a
+    judgment call this endpoint deliberately leaves to a human."""
+    groups = find_all_duplicates(db)
+    return [DuplicateGroupOut(reason=g.reason, poster_ids=g.poster_ids, detail=g.detail) for g in groups]
+
+
+@router.post("/{poster_id}/verify-link", response_model=LinkVerifyResultOut)
+def verify_poster_link(
+    poster_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.EDITOR)),
+):
+    poster = db.get(Poster, poster_id)
+    if poster is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poster record not found")
+    if not poster.dropbox_url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This record has no Dropbox link to verify")
+
+    provider = DropboxStorageProvider()
+    is_ok = provider.verify(poster.dropbox_url) if provider.can_handle(poster.dropbox_url) else False
+    poster.dropbox_link_broken = not is_ok
+    poster.dropbox_last_verified_at = datetime.utcnow()
+    db.commit()
+
+    record_audit(
+        actor=current_user.username, action="poster_link_verified",
+        resource_type="poster", resource_id=poster.id, detail={"broken": poster.dropbox_link_broken},
+    )
+    return LinkVerifyResultOut(
+        poster_id=poster.id,
+        dropbox_link_broken=poster.dropbox_link_broken,
+        dropbox_last_verified_at=poster.dropbox_last_verified_at,
+    )
+
+
+@router.get("/{poster_id}/link-history", response_model=list[PosterLinkHistoryOut])
+def get_poster_link_history(poster_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    poster = db.get(Poster, poster_id)
+    if poster is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poster record not found")
+    return poster.link_history
+
+
 @router.get("", response_model=PosterListResponse)
 def list_posters(
     district: str | None = None,
@@ -576,9 +777,11 @@ def create_poster(
         folder_id_override=payload.folder_id,
         district=payload.district,
         estate=payload.estate,
+        poster_type=payload.poster_type,
         document_date=payload.document_date,
         created_by=current_user.username,
     )
+    poster.source = poster.source or "manual"
     db.add(poster)
     db.commit()
     record_audit(
@@ -615,6 +818,23 @@ def update_poster(
             get_folder_or_raise(db, updates["folder_id"])
         except FolderNotFoundError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    if "dropbox_url" in updates and updates["dropbox_url"] != poster.dropbox_url:
+        # Preserve history before the old value is overwritten - "if a
+        # Dropbox link changes, preserve history" is a hard requirement,
+        # not best-effort.
+        db.add(
+            PosterLinkHistory(
+                poster_id=poster.id,
+                old_url=poster.dropbox_url,
+                new_url=updates["dropbox_url"],
+                changed_by=current_user.username,
+            )
+        )
+        # A changed link hasn't been re-verified yet - stale verification
+        # state would be actively misleading.
+        poster.dropbox_link_broken = None
+        poster.dropbox_last_verified_at = None
 
     for key, value in updates.items():
         setattr(poster, key, value)

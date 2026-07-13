@@ -55,6 +55,19 @@ class DropboxStorageProvider:
     def can_handle(self, reference: str) -> bool:
         return bool(_DROPBOX_HOST_RE.search(urlsplit(reference).netloc))
 
+    def verify(self, reference: str) -> bool:
+        """Cheap link-health check: True if the link resolves (HTTP 200)
+        without downloading the file's contents - `client.stream()` only
+        reads response headers until the body is actually iterated, so
+        this never pulls the full file just to check it still works."""
+        direct_url = _as_direct_download_url(reference)
+        try:
+            with httpx.Client(follow_redirects=True, timeout=self.timeout_seconds) as client:
+                with client.stream("GET", direct_url) as response:
+                    return response.status_code == 200
+        except httpx.HTTPError:
+            return False
+
     def fetch(self, reference: str) -> StorageObject:
         direct_url = _as_direct_download_url(reference)
         try:
