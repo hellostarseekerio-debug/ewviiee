@@ -64,7 +64,25 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        setStats(await dashboardApi.stats());
+        const raw = await dashboardApi.stats();
+        // Defensive: the frontend and backend deploy independently (Vercel /
+        // Render), so a request can land on a backend build that predates
+        // these fields. Fill in safe defaults rather than letting a missing
+        // key crash the whole page with a client-side exception.
+        setStats({
+          ...raw,
+          total_posters: raw.total_posters ?? 0,
+          posters_by_district: raw.posters_by_district ?? {},
+          posters_by_estate: raw.posters_by_estate ?? {},
+          posters_by_status: raw.posters_by_status ?? {},
+          recent_poster_uploads: raw.recent_poster_uploads ?? [],
+          broken_dropbox_links: raw.broken_dropbox_links ?? 0,
+          duplicate_poster_groups: raw.duplicate_poster_groups ?? 0,
+          downloads_today: raw.downloads_today ?? 0,
+          pending_reviews: raw.pending_reviews ?? 0,
+          most_active_users: raw.most_active_users ?? [],
+          export_storage_bytes: raw.export_storage_bytes ?? 0,
+        });
       } catch (err) {
         toast.error(err instanceof ApiError ? err.message : "Failed to load dashboard stats");
       } finally {
