@@ -1,5 +1,16 @@
 # Housing estate definitions, each linked to a district id from districts.yaml.
 # Add new estates here - no code change required.
+#
+# `common_routes` / `politicians` / `dropbox_folder` / `poster_templates`
+# are the "estate metadata" fields from app/posters/estates.py's
+# EstateMetadataService - deliberately left empty below for every estate.
+# This file has no authoritative source for which politicians/bus routes/
+# Dropbox folders/templates are actually associated with a given estate,
+# so populating them here would mean presenting a guess as fact in a
+# system used for real government office work. Office staff should fill
+# these in per-estate as that information is confirmed; the parser and
+# EstateMetadataService already read them the moment they're non-empty,
+# no code change required.
 estates:
   - id: lam_tin_estate
     name: "Lam Tin Estate"
@@ -9,19 +20,130 @@ estates:
     name: "Choi Hung Estate"
     district_id: kwun_tong
     aliases: ["彩虹邨"]
+  - id: lok_wah_estate
+    name: "Lok Wah Estate"
+    district_id: kwun_tong
+    aliases: ["樂華邨", "乐华邨"]
+  - id: shun_lee_estate
+    name: "Shun Lee Estate"
+    district_id: kwun_tong
+    aliases: ["順利邨", "顺利邨"]
+
   - id: tsz_wan_shan_estate
     name: "Tsz Wan Shan Estate"
     district_id: wong_tai_sin
     aliases: ["慈雲山邨", "慈云山邨"]
+  - id: wong_tai_sin_upper_estate
+    name: "Wong Tai Sin Upper Estate"
+    district_id: wong_tai_sin
+    aliases: ["黃大仙上邨", "黄大仙上邨"]
+  - id: tung_tau_estate
+    name: "Tung Tau Estate"
+    district_id: wong_tai_sin
+    aliases: ["東頭邨", "东头邨"]
+
   - id: wo_che_estate
     name: "Wo Che Estate"
     district_id: sha_tin
     aliases: ["禾輋邨"]
+  - id: yue_chui_court
+    name: "Yue Chui Court"
+    district_id: sha_tin
+    aliases: ["愉翠苑"]
+  - id: sha_kok_estate
+    name: "Sha Kok Estate"
+    district_id: sha_tin
+    aliases: ["沙角邨"]
+  - id: lek_yuen_estate
+    name: "Lek Yuen Estate"
+    district_id: sha_tin
+    aliases: ["瀝源邨", "沥源邨"]
+
   - id: kwai_shing_east_estate
     name: "Kwai Shing East Estate"
     district_id: kwai_tsing
     aliases: ["葵盛東邨", "葵盛东邨"]
+  - id: shek_lei_estate
+    name: "Shek Lei Estate"
+    district_id: kwai_tsing
+    aliases: ["石籬邨"]
+  - id: cheung_hong_estate
+    name: "Cheung Hong Estate"
+    district_id: kwai_tsing
+    aliases: ["長康邨", "长康邨"]
+
   - id: butterfly_estate
     name: "Butterfly Estate"
     district_id: tuen_mun
     aliases: ["蝴蝶邨"]
+  - id: shan_king_estate
+    name: "Shan King Estate"
+    district_id: tuen_mun
+    aliases: ["山景邨"]
+  - id: yau_oi_estate
+    name: "Yau Oi Estate"
+    district_id: tuen_mun
+    aliases: ["友愛邨", "友爱邨"]
+
+  - id: kwong_fuk_estate
+    name: "Kwong Fuk Estate"
+    district_id: tai_po
+    aliases: ["廣福邨", "广福邨"]
+  - id: tai_wo_estate
+    name: "Tai Wo Estate"
+    district_id: tai_po
+    aliases: ["太和邨"]
+  - id: fu_heng_estate
+    name: "Fu Heng Estate"
+    district_id: tai_po
+    aliases: ["富亨邨"]
+
+  - id: tin_yiu_estate
+    name: "Tin Yiu Estate"
+    district_id: yuen_long
+    aliases: ["天耀邨"]
+
+  - id: cheung_wah_estate
+    name: "Cheung Wah Estate"
+    district_id: north
+    aliases: ["祥華邨"]
+
+  - id: po_lam_estate
+    name: "Po Lam Estate"
+    district_id: sai_kung
+    aliases: ["寶琳邨", "宝琳邨"]
+
+  - id: yat_tung_estate
+    name: "Yat Tung Estate"
+    district_id: islands
+    aliases: ["逸東邨", "逸东邨"]
+
+  - id: sai_wan_estate
+    name: "Sai Wan Estate"
+    district_id: central_western
+    aliases: ["西環邨"]
+
+  - id: chai_wan_estate
+    name: "Chai Wan Estate"
+    district_id: eastern
+    aliases: ["柴灣邨", "柴湾邨"]
+
+  - id: wah_fu_estate
+    name: "Wah Fu Estate"
+    district_id: southern
+    aliases: ["華富邨", "华富邨"]
+
+  - id: tai_hang_tung_estate
+    name: "Tai Hang Tung Estate"
+    district_id: yau_tsim_mong
+    aliases: ["大坑東邨", "大坑东邨"]
+
+  - id: nam_shan_estate
+    name: "Nam Shan Estate"
+    district_id: sham_shui_po
+    aliases: ["南山邨"]
+
+  - id: ho_man_tin_estate
+    name: "Ho Man Tin Estate"
+    district_id: kowloon_city
+    aliases: ["何文田邨"]

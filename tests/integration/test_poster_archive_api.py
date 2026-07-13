@@ -72,11 +72,11 @@ def test_list_posters_after_import(bootstrap_admin):
 def test_list_posters_filters_by_district(bootstrap_admin):
     client, headers = bootstrap_admin
     client.post("/api/posters/import", json={"text": SAMPLE_TEXT}, headers=headers)
-    response = client.get("/api/posters", params={"district": "Sha Tin"}, headers=headers)
+    response = client.get("/api/posters", params={"district": "沙田"}, headers=headers)
     assert response.status_code == 200
     body = response.json()
     assert body["total"] == 1
-    assert body["results"][0]["district"] == "Sha Tin"
+    assert body["results"][0]["district"] == "沙田"
 
 
 def test_list_posters_filters_by_has_dropbox(bootstrap_admin):
@@ -256,7 +256,7 @@ def test_csv_export_contains_imported_records(bootstrap_admin):
     assert response.headers["content-type"].startswith("text/csv")
     csv_text = response.text
     assert "dropbox_url" in csv_text.splitlines()[0]
-    assert "Sha Tin" in csv_text
+    assert "沙田" in csv_text
 
 
 def test_malformed_import_text_returns_zero_records_not_an_error(bootstrap_admin):

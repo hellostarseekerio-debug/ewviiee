@@ -32,7 +32,12 @@ def load_ruleset(config_dir: Path) -> RuleSet:
     if districts_file.exists():
         data = yaml.safe_load(districts_file.read_text(encoding="utf-8")) or {}
         ruleset.districts = [
-            District(id=d["id"], name=d["name"], aliases=d.get("aliases", []))
+            District(
+                id=d["id"],
+                name=d["name"],
+                aliases=d.get("aliases", []),
+                region=d.get("region"),
+            )
             for d in data.get("districts", [])
         ]
 
@@ -45,6 +50,10 @@ def load_ruleset(config_dir: Path) -> RuleSet:
                 name=e["name"],
                 district_id=e["district_id"],
                 aliases=e.get("aliases", []),
+                common_routes=e.get("common_routes", []),
+                politicians=e.get("politicians", []),
+                dropbox_folder=e.get("dropbox_folder"),
+                poster_templates=e.get("poster_templates", []),
             )
             for e in data.get("estates", [])
         ]

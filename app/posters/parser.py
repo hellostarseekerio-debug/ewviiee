@@ -3,18 +3,34 @@ each a title line plus a Dropbox link) into structured records for the
 Poster Archive - see docs/api.md's "Poster Archive" section for the field
 reference and app/api/routes/posters.py for how this is used.
 
-Deliberately deterministic (regex + the existing YAML-driven district/
-estate alias/fuzzy matching in app.rules.engine), not AI-based: this
-mirrors the platform's "deterministic first" policy used everywhere else
-(see app/rules/engine.py's module docstring), and staff pasting hundreds
-of records at once need parsing to be fast, free, and not dependent on an
-AI provider being configured.
+Rule-based first (regex + the YAML-driven district/estate alias/fuzzy
+matching in app.rules.engine, richened by app.posters.estates'
+EstateMetadataService), with an AI fallback (app.posters.ai_fallback)
+invoked only when rule-based extraction still leaves both the title and
+district/estate unresolved - the platform's "deterministic first" policy
+applied one level deeper than before: AI is the last resort, not the
+first attempt, and every AI call result is cached so the same source text
+is never sent to a provider twice.
 
 Every field extractor is independent and wrapped so it can never raise -
 if a field can't be confidently extracted, it is left None (per the
 requirement: "leave it blank instead of crashing"). A block with no
 Dropbox link at all is skipped entirely (nothing to import), everything
 else degrades field-by-field instead of discarding the whole record.
+
+Segment-based title extraction: the metadata line format actually used in
+practice is hyphen-delimited fields - "<date>-<poster type>-<title>-
+<route>-<estate description>" (e.g. "20260707-海報-好消息-73H-愉翠苑來往大埔
+富蝶邨") - so `_extract_title` splits on hyphen variants and drops any
+segment fully explained by another field this parser extracts elsewhere
+(a date, an exact poster-type keyword, a route code, or a route "from A
+to B" description). What's left is the real title, instead of the whole
+raw line - dates, types, routes and all - being stored as if it were the
+title. Every field this module returns is also given a confidence
+(0.0-1.0) and a source ("regex" | "rule_engine" | "ai" | "default") via
+`ParsedPoster.field_confidence`/`field_sources`, so a low-confidence field
+can be flagged in the UI without the whole record being treated as
+unreliable.
 """
 from __future__ import annotations
 
@@ -22,6 +38,9 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from sqlalchemy.orm import Session
+
+from app.posters.estates import EstateMetadataService
 from app.rules.engine import RuleEngine
 
 DROPBOX_URL_RE = re.compile(r"https?://(?:www\.)?dropbox\.com/\S+", re.IGNORECASE)
@@ -34,11 +53,13 @@ _DATE_RE = re.compile(r"(20\d{2})[-/年]?(\d{1,2})[-/月]?(\d{1,2})日?")
 # the source material; plain [...] as a common ASCII fallback.
 _BRACKET_RE = re.compile(r"[【\[](.+?)[】\]]|「(.+?)」")
 
-# Hong Kong bus/minibus route codes: 1-3 digits, optional 1-2 trailing
-# letters (73H, 290A, 1). Longer digit runs are dates/phone numbers/IDs,
-# not routes - excluded explicitly below rather than by the regex itself,
-# since a 4-digit token still needs to be found before it can be rejected.
-_ROUTE_RE = re.compile(r"\b(\d{1,4}[A-Z]{0,2})\b")
+# Hong Kong bus/minibus route codes: 1-4 digits, with an optional 1-2
+# letter prefix (airport/cross-harbour/night routes like A41, E21, N281)
+# and/or suffix (73H, 290A). Longer bare digit runs are dates/phone
+# numbers/ids, not routes - excluded explicitly in _extract_route rather
+# than by the regex itself, since a 4+ digit run still needs to be found
+# before it can be rejected.
+_ROUTE_RE = re.compile(r"\b([A-Z]{0,2}\d{1,4}[A-Z]{0,2})\b")
 
 _POSTER_TYPE_KEYWORDS = {
     # More specific categories checked before their generic counterparts
@@ -53,12 +74,46 @@ _POSTER_TYPE_KEYWORDS = {
     "屋邨通告": "housing_notice",
     "屋苑通告": "housing_notice",
     "政府公告": "government_announcement",
+    "交通改道": "traffic_diversion",
+    "跨境": "cross_border",
+    "工程": "works",
+    "環保": "environmental",
+    "环保": "environmental",
+    "法律": "legal",
+    "公共服務": "public_service",
+    "公共服务": "public_service",
+    "寵物": "pets",
+    "宠物": "pets",
+    "活動": "event",
+    "活动": "event",
     "海報": "poster",
     "海报": "poster",
     "通告": "notice",
+    "通知": "notice",
     "公告": "announcement",
     "單張": "flyer",
     "单张": "flyer",
+}
+
+# Topical keywords worth surfacing regardless of where in the text they
+# appear (unlike _POSTER_TYPE_KEYWORDS, these are not mutually exclusive -
+# a poster about a stray-dog feeding ban at a restaurant district might
+# reasonably carry several of these at once). Matched in addition to,
+# never instead of, the leftover-token keyword extraction below.
+_TOPIC_KEYWORDS = {
+    "狗": "狗隻", "犬": "狗隻",
+    "貓": "貓隻", "猫": "猫只",
+    "寵物": "寵物", "宠物": "宠物",
+    "食肆": "食肆", "餐廳": "餐廳", "餐厅": "餐厅",
+    "政府": "政府",
+    "工程": "工程",
+    "交通": "交通",
+    "巴士": "巴士",
+    "小巴": "小巴",
+    "環保": "環保", "环保": "环保",
+    "法律": "法律",
+    "屋邨": "屋邨",
+    "屋苑": "屋苑",
 }
 
 # Common Hong Kong government department names/abbreviations, matched as a
@@ -128,6 +183,27 @@ _ESTATE_SUFFIX_RE = re.compile(
     r"([一-鿿]{2,8}(?:邨|苑|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾))"
 )
 
+# A segment made up of nothing but estate/building names and route
+# connector words ("愉翠苑來往大埔富蝶邨" = "Yue Chui Court to/from Fu Wo
+# Estate") describes where a route goes, not descriptive title content -
+# used by _extract_title to drop such a hyphen-delimited segment entirely
+# rather than fold it into the title.
+_ROUTE_DESCRIPTION_TOKEN_RE = re.compile(
+    r"(?:[一-鿿]{2,10}(?:邨|苑|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾)|來往|来往|往|至)"
+)
+
+# After every other cleanup, a title made of nothing but punctuation/
+# whitespace (e.g. a lone "-" left over from stripping) is not a title -
+# it's the parser having found nothing, and must fall through to None
+# rather than store useless punctuation as if it meant something.
+_PUNCTUATION_ONLY_RE = re.compile(r"^[\-–—_.,:：、，\s]*$")
+
+_HYPHEN_SPLIT_RE = re.compile(r"[-–—_]+")
+
+
+def _split_segments(text: str) -> list[str]:
+    return [s.strip() for s in _HYPHEN_SPLIT_RE.split(text) if s.strip()]
+
 
 @dataclass
 class ParsedPoster:
@@ -135,6 +211,11 @@ class ParsedPoster:
     `source_text` are always populated (a block is only ever turned into a
     ParsedPoster once a Dropbox link is confirmed present) - every other
     field is best-effort and may be None.
+
+    `field_confidence`/`field_sources` give a 0.0-1.0 confidence and a
+    source tag ("regex" | "rule_engine" | "ai" | "default") per field, so
+    a caller can flag exactly the fields that were low-confidence or
+    AI-guessed instead of an all-or-nothing needs_review flag.
 
     `campaign_name` has no reliable regex/keyword heuristic (unlike
     district/estate/department, campaign names aren't drawn from a small,
@@ -146,11 +227,14 @@ class ParsedPoster:
     dropbox_url: str
     source_text: str
     district: str | None = None
+    region: str | None = None
     estate: str | None = None
     poster_title: str | None = None
     poster_type: str | None = None
     route_number: str | None = None
+    politicians: list[str] = field(default_factory=list)
     document_date: datetime | None = None
+    date_to: datetime | None = None
     language: str | None = None
     version: str | None = None
     government_department: str | None = None
@@ -158,6 +242,8 @@ class ParsedPoster:
     keywords: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     needs_review: bool = False
+    field_confidence: dict[str, float] = field(default_factory=dict)
+    field_sources: dict[str, str] = field(default_factory=dict)
 
 
 def _extract_date(text: str) -> datetime | None:
@@ -168,6 +254,23 @@ def _extract_date(text: str) -> datetime | None:
         return datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
     except ValueError:
         return None  # e.g. "2026-13-40" - not a real date, leave blank
+
+
+def _extract_date_range(text: str) -> tuple[datetime | None, datetime | None]:
+    """Returns (date_from, date_to). date_to is only populated when a
+    second, distinct date is found in the same text - most records name
+    only one date, in which case date_to stays None (never invented)."""
+    dates: list[datetime] = []
+    for match in _DATE_RE.finditer(text):
+        try:
+            dates.append(datetime(int(match.group(1)), int(match.group(2)), int(match.group(3))))
+        except ValueError:
+            continue
+    if not dates:
+        return None, None
+    if len(dates) == 1 or dates[0] == dates[1]:
+        return dates[0], None
+    return dates[0], dates[1]
 
 
 def _extract_route(text: str) -> str | None:
@@ -181,18 +284,38 @@ def _extract_route(text: str) -> str | None:
     return None
 
 
-# After every other cleanup, a title made of nothing but punctuation/
-# whitespace (e.g. a lone "-" left over from stripping) is not a title -
-# it's the parser having found nothing, and must fall through to None
-# rather than store useless punctuation as if it meant something.
-_PUNCTUATION_ONLY_RE = re.compile(r"^[\-–—_.,:：、，\s]*$")
+def _is_route_description_segment(segment: str) -> bool:
+    """True if `segment` is entirely composed of estate/building suffix
+    names and route connector words ("來往"/"往"/"至") - i.e. the whole
+    segment describes where a route goes, not descriptive title content."""
+    tokens = _ROUTE_DESCRIPTION_TOKEN_RE.findall(segment)
+    return bool(tokens) and "".join(tokens) == segment
 
 
-def _extract_title(text: str, district_tokens: list[str] | None = None) -> str | None:
+def _is_non_title_segment(segment: str) -> bool:
+    """True if `segment` (one hyphen-delimited piece of a metadata line)
+    is fully explained by another field this parser extracts elsewhere,
+    and so should not be folded into the title."""
+    if _DATE_RE.fullmatch(segment):
+        return True
+    if segment in _POSTER_TYPE_KEYWORDS:
+        return True
+    if len(segment) >= _MIN_ROUTE_LENGTH and _ROUTE_RE.fullmatch(segment):
+        return True
+    if segment.isdigit():
+        return True  # stray numeric noise (page/version fragment), never a title
+    if _is_route_description_segment(segment):
+        return True
+    return False
+
+
+def _extract_title(text: str, district_tokens: list[str] | None = None) -> tuple[str | None, float, str]:
+    """Returns (title, confidence, source)."""
     match = _BRACKET_RE.search(text)
     if match:
         title = (match.group(1) or match.group(2) or "").strip()
-        return title or None
+        return (title, 1.0, "regex") if title else (None, 0.0, "none")
+
     stripped = " ".join(text.split())
     tokens = sorted({t for t in (district_tokens or []) + _HK_DISTRICTS_ZH if t}, key=len, reverse=True)
     for token in tokens:
@@ -201,9 +324,25 @@ def _extract_title(text: str, district_tokens: list[str] | None = None) -> str |
             if rest:
                 stripped = rest
             break
+
     if not stripped or _PUNCTUATION_ONLY_RE.match(stripped):
-        return None
-    return stripped
+        return None, 0.0, "none"
+
+    segments = _split_segments(stripped)
+    if len(segments) > 1:
+        title_segments = [s for s in segments if not _is_non_title_segment(s)]
+        if not title_segments:
+            # Every segment was a date/type/route/route-description - there
+            # is genuinely no title content here, not a parsing failure to
+            # recover from by falling back to the raw line (which would
+            # just reintroduce the fields we determined don't belong here).
+            return None, 0.0, "none"
+        candidate = " ".join(title_segments)
+        if _PUNCTUATION_ONLY_RE.match(candidate):
+            return None, 0.0, "none"
+        return candidate, 0.85, "regex"
+
+    return stripped, 0.5, "regex"
 
 
 def _detect_language(text: str) -> str | None:
@@ -222,6 +361,21 @@ def _extract_poster_type(text: str) -> str | None:
     for keyword, poster_type in _POSTER_TYPE_KEYWORDS.items():
         if keyword in text:
             return poster_type
+    return None
+
+
+def _extract_poster_type_from_segments(segments: list[str]) -> str | None:
+    """Segment-exact-match poster type detection: only a hyphen-delimited
+    segment that *exactly* equals a known type keyword counts (the first
+    one found, in order) - unlike _extract_poster_type's whole-text
+    substring scan, this deliberately does not match a keyword merely
+    embedded within a longer descriptive segment (e.g. "工程" inside
+    "...改善工程" is part of the title's subject matter, not a poster-type
+    marker, and must not be misclassified as the "works" category just
+    because that word appears somewhere in the title)."""
+    for segment in segments:
+        if segment in _POSTER_TYPE_KEYWORDS:
+            return _POSTER_TYPE_KEYWORDS[segment]
     return None
 
 
@@ -264,14 +418,24 @@ def _extract_estate_fallback(text: str) -> str | None:
 
 
 def _extract_keywords(text: str, already_extracted: list[str]) -> list[str]:
+    keywords: list[str] = []
+    for needle, canonical in _TOPIC_KEYWORDS.items():
+        if needle in text and canonical not in keywords:
+            keywords.append(canonical)
+
     remainder = _BRACKET_RE.sub(" ", text)
     for token in already_extracted:
         remainder = remainder.replace(token, " ")
     parts = re.split(r"[\-–—_/,，、\s]+", remainder)
-    keywords: list[str] = []
     for part in parts:
         cleaned = part.strip("【】「」[]()（）")
-        if cleaned and cleaned not in _STOPWORDS and cleaned not in keywords and len(cleaned) > 1:
+        if (
+            cleaned
+            and cleaned not in _STOPWORDS
+            and cleaned not in keywords
+            and len(cleaned) > 1
+            and not cleaned.isdigit()
+        ):
             keywords.append(cleaned)
     return keywords[:12]
 
@@ -317,11 +481,25 @@ def split_into_blocks(raw_text: str) -> list[str]:
     return blocks
 
 
-def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | None:
+def parse_block(
+    block: str,
+    rule_engine: RuleEngine | None,
+    *,
+    estate_service: EstateMetadataService | None = None,
+    db: Session | None = None,
+) -> ParsedPoster | None:
     """Parses one block into a ParsedPoster, or None if it has no Dropbox
     link (nothing to import). Every other field is extracted independently
     and defensively - one field's extractor raising never prevents the
-    others from populating."""
+    others from populating.
+
+    `estate_service` defaults to wrapping `rule_engine` when omitted (the
+    common case - callers only need to pass a distinct instance if they
+    want to override estate-metadata resolution independently of district/
+    estate name resolution). `db` enables the AI fallback's result cache
+    (app.posters.ai_fallback) - omitted (None), the AI fallback is simply
+    skipped, matching every other "AI is optional" path in this app.
+    """
     url_match = DROPBOX_URL_RE.search(block)
     if url_match is None:
         return None
@@ -331,18 +509,28 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
 
     parsed = ParsedPoster(dropbox_url=dropbox_url, source_text=block.strip())
 
+    if estate_service is None and rule_engine is not None:
+        estate_service = EstateMetadataService(rule_engine)
+
     try:
-        parsed.document_date = _extract_date(text_only)
+        parsed.document_date, parsed.date_to = _extract_date_range(text_only)
     except Exception:
         parsed.warnings.append("date_extraction_failed")
+    parsed.field_confidence["document_date"] = 1.0 if parsed.document_date else 0.0
+    parsed.field_sources["document_date"] = "regex" if parsed.document_date else "none"
 
     try:
         parsed.route_number = _extract_route(text_only)
     except Exception:
         parsed.warnings.append("route_extraction_failed")
+    parsed.field_confidence["route_number"] = 1.0 if parsed.route_number else 0.0
+    parsed.field_sources["route_number"] = "regex" if parsed.route_number else "none"
 
+    segments = _split_segments(text_only)
     try:
-        parsed.poster_type = _extract_poster_type(text_only)
+        parsed.poster_type = (
+            _extract_poster_type_from_segments(segments) if len(segments) > 1 else _extract_poster_type(text_only)
+        )
     except Exception:
         parsed.warnings.append("poster_type_extraction_failed")
 
@@ -351,24 +539,43 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
     except Exception:
         parsed.warnings.append("language_detection_failed")
 
-    resolved_district_id = None
     resolved_district_tokens: list[str] = []
-    if rule_engine is not None:
+    district_confidence: float | None = None
+    estate_confidence: float | None = None
+
+    # Estate resolution runs *before* an independent whole-text district
+    # scan, and - once an estate resolves - its own district/region comes
+    # from that estate's metadata bundle, not a second, separate text scan.
+    # Without this ordering, a record naming both its own estate and a
+    # route's destination estate in another district (e.g. "愉翠苑來往大埔
+    # 富蝶邨" - Sha Tin's Yue Chui Court, "to/from" Tai Po's Fu Wo Estate)
+    # would have its *district* hijacked by whichever district name the
+    # whole-text scan happens to score higher, even though the record's own
+    # district is unambiguous once you know which estate it's actually
+    # about.
+    if estate_service is not None:
+        try:
+            meta = estate_service.resolve(text_only)
+            if meta is not None:
+                parsed.estate = meta.estate_name
+                estate_confidence = meta.confidence
+                parsed.district = meta.district_name
+                parsed.region = meta.region
+                if meta.politicians:
+                    parsed.politicians = meta.politicians
+        except Exception:
+            parsed.warnings.append("estate_resolution_failed")
+
+    if rule_engine is not None and parsed.district is None:
         try:
             district = rule_engine.resolve_district(text_only)
             if district is not None:
-                parsed.district = district.name
-                resolved_district_id = district.id
-                resolved_district_tokens = [district.name, district.id, *district.aliases]
+                parsed.district = district.native_name
+                parsed.region = district.region
+                resolved_district_tokens = [district.name, district.id, district.native_name, *district.aliases]
+                district_confidence = rule_engine.last_district_confidence
         except Exception:
             parsed.warnings.append("district_resolution_failed")
-
-        try:
-            estate = rule_engine.resolve_estate(text_only, district_id=resolved_district_id)
-            if estate is not None:
-                parsed.estate = estate.name
-        except Exception:
-            parsed.warnings.append("estate_resolution_failed")
 
     if parsed.estate is None:
         try:
@@ -376,10 +583,41 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
         except Exception:
             parsed.warnings.append("estate_extraction_failed")
 
+    # `district` may have come directly from a district-text match
+    # (district_confidence) or, more often, from the estate that resolved
+    # first (estate_confidence) - either is a real, confident resolution,
+    # not "not found".
+    effective_district_confidence = district_confidence if district_confidence is not None else estate_confidence
+    parsed.field_confidence["district"] = effective_district_confidence if effective_district_confidence else 0.0
+    parsed.field_sources["district"] = "rule_engine" if effective_district_confidence else "none"
+    parsed.field_confidence["estate"] = estate_confidence if estate_confidence else (0.6 if parsed.estate else 0.0)
+    parsed.field_sources["estate"] = "rule_engine" if estate_confidence else ("regex" if parsed.estate else "none")
+
     try:
-        parsed.poster_title = _extract_title(text_only, resolved_district_tokens)
+        parsed.poster_title, title_confidence, title_source = _extract_title(text_only, resolved_district_tokens)
     except Exception:
         parsed.warnings.append("title_extraction_failed")
+        title_confidence, title_source = 0.0, "none"
+    parsed.field_confidence["poster_title"] = title_confidence
+    parsed.field_sources["poster_title"] = title_source
+
+    # Poster type default: a record with a resolved date and a genuine
+    # (non-garbage) title, but no explicit type keyword anywhere in the
+    # text, is still almost always some kind of notice/circular rather
+    # than an un-classifiable record - defaulting to "notice" here (at a
+    # deliberately lower confidence than an actual keyword match) avoids
+    # leaving an obviously-a-notice record's type blank purely because it
+    # didn't happen to use one of the recognised keywords.
+    if parsed.poster_type is not None:
+        parsed.field_confidence["poster_type"] = 1.0
+        parsed.field_sources["poster_type"] = "regex"
+    elif parsed.document_date is not None and not _is_garbage_title(parsed.poster_title):
+        parsed.poster_type = "notice"
+        parsed.field_confidence["poster_type"] = 0.4
+        parsed.field_sources["poster_type"] = "default"
+    else:
+        parsed.field_confidence["poster_type"] = 0.0
+        parsed.field_sources["poster_type"] = "none"
 
     try:
         parsed.version = _extract_version(text_only)
@@ -398,24 +636,65 @@ def parse_block(block: str, rule_engine: RuleEngine | None) -> ParsedPoster | No
         parsed.warnings.append("keyword_extraction_failed")
 
     # Confidence check: if none of the record's three most identifying
-    # fields resolved, there's a real chance the metadata line didn't
-    # match the expected shape at all (garbled paste, an unsupported
-    # format, noise). _extract_title's fallback branch returns whatever
-    # text remains even when it's meaningless symbols ("@@@ ### !!!"), so
-    # "title is falsy" alone doesn't catch that case - _is_garbage_title
-    # additionally treats a title with no CJK character and no Latin
-    # letter/digit as equivalent to no title at all. Rather than silently
-    # inserting a record that's effectively "district: none, estate: none,
-    # title: noise", flag it so a human confirms it before it's trusted -
-    # per the requirement to never insert low-confidence data as if it
-    # were reliable.
+    # fields resolved with any confidence, there's a real chance the
+    # metadata line didn't match the expected shape at all (garbled paste,
+    # an unsupported format, noise). Rather than silently inserting a
+    # record that's effectively "district: none, estate: none, title:
+    # noise", try the AI fallback (if a db session was given and an AI
+    # provider is available/allowed) before giving up and flagging it for
+    # manual review - per the requirement to never insert low-confidence
+    # data as if it were reliable, but also to never ask a human unless
+    # both the rule-based parser and the AI fallback have failed.
     if parsed.district is None and parsed.estate is None and _is_garbage_title(parsed.poster_title):
-        parsed.needs_review = True
+        if db is not None:
+            _apply_ai_fallback(parsed, db, block)
+        if parsed.district is None and parsed.estate is None and _is_garbage_title(parsed.poster_title):
+            parsed.needs_review = True
 
     return parsed
 
 
-def parse_poster_text(raw_text: str, rule_engine: RuleEngine | None = None) -> list[ParsedPoster]:
+def _apply_ai_fallback(parsed: ParsedPoster, db: Session, block: str) -> None:
+    """Fills in title/district/estate/poster_type from the AI fallback
+    (app.posters.ai_fallback) wherever the rule-based pass left them
+    unresolved - never overwrites a field the rule-based pass already
+    populated, and never raises (a failed/unavailable AI call simply
+    leaves the record as the rule-based pass left it)."""
+    from app.posters.ai_fallback import get_ai_extracted_fields
+
+    try:
+        result = get_ai_extracted_fields(db, block)
+    except Exception:
+        parsed.warnings.append("ai_fallback_failed")
+        return
+    if not result:
+        return
+
+    if _is_garbage_title(parsed.poster_title) and result.get("title"):
+        parsed.poster_title = str(result["title"])
+        parsed.field_confidence["poster_title"] = 0.6
+        parsed.field_sources["poster_title"] = "ai"
+    if parsed.district is None and result.get("district"):
+        parsed.district = str(result["district"])
+        parsed.field_confidence["district"] = 0.6
+        parsed.field_sources["district"] = "ai"
+    if parsed.estate is None and result.get("estate"):
+        parsed.estate = str(result["estate"])
+        parsed.field_confidence["estate"] = 0.6
+        parsed.field_sources["estate"] = "ai"
+    if parsed.poster_type is None and result.get("poster_type"):
+        parsed.poster_type = str(result["poster_type"])
+        parsed.field_confidence["poster_type"] = 0.6
+        parsed.field_sources["poster_type"] = "ai"
+
+
+def parse_poster_text(
+    raw_text: str,
+    rule_engine: RuleEngine | None = None,
+    *,
+    estate_service: EstateMetadataService | None = None,
+    db: Session | None = None,
+) -> list[ParsedPoster]:
     """Top-level entry point used by POST /api/posters/import. Splits a
     large pasted blob into records and parses each - never raises for
     malformed/inconsistent input; a block with no Dropbox link is silently
@@ -424,5 +703,5 @@ def parse_poster_text(raw_text: str, rule_engine: RuleEngine | None = None) -> l
     return [
         parsed
         for block in split_into_blocks(raw_text)
-        if (parsed := parse_block(block, rule_engine)) is not None
+        if (parsed := parse_block(block, rule_engine, estate_service=estate_service, db=db)) is not None
     ]

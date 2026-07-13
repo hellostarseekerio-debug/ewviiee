@@ -1,18 +1,85 @@
 # District definitions used across all workflows.
 # Add new districts here - no code change required.
+#
+# `region` groups districts into Hong Kong's three standard administrative
+# regions (Hong Kong Island / Kowloon / New Territories) - used by
+# app/posters/estates.py's EstateMetadataService to auto-fill "Region"
+# whenever a district resolves.
 districts:
-  - id: kwun_tong
-    name: "Kwun Tong"
-    aliases: ["觀塘", "观塘", "KT"]
+  # --- Hong Kong Island ---
+  - id: central_western
+    name: "Central and Western"
+    aliases: ["中西區", "中西区", "C&W"]
+    region: "Hong Kong Island"
+  - id: wan_chai
+    name: "Wan Chai"
+    aliases: ["灣仔", "湾仔"]
+    region: "Hong Kong Island"
+  - id: eastern
+    name: "Eastern"
+    aliases: ["東區", "东区"]
+    region: "Hong Kong Island"
+  - id: southern
+    name: "Southern"
+    aliases: ["南區", "南区"]
+    region: "Hong Kong Island"
+
+  # --- Kowloon ---
+  - id: yau_tsim_mong
+    name: "Yau Tsim Mong"
+    aliases: ["油尖旺", "YTM"]
+    region: "Kowloon"
+  - id: sham_shui_po
+    name: "Sham Shui Po"
+    aliases: ["深水埗", "SSP"]
+    region: "Kowloon"
+  - id: kowloon_city
+    name: "Kowloon City"
+    aliases: ["九龍城", "九龙城", "KC"]
+    region: "Kowloon"
   - id: wong_tai_sin
     name: "Wong Tai Sin"
     aliases: ["黃大仙", "黄大仙", "WTS"]
-  - id: sha_tin
-    name: "Sha Tin"
-    aliases: ["沙田", "ST"]
+    region: "Kowloon"
+  - id: kwun_tong
+    name: "Kwun Tong"
+    aliases: ["觀塘", "观塘", "KT"]
+    region: "Kowloon"
+
+  # --- New Territories ---
   - id: kwai_tsing
     name: "Kwai Tsing"
     aliases: ["葵青", "KwaiChung", "葵涌"]
+    region: "New Territories"
+  - id: tsuen_wan
+    name: "Tsuen Wan"
+    aliases: ["荃灣", "荃湾", "TW"]
+    region: "New Territories"
   - id: tuen_mun
     name: "Tuen Mun"
     aliases: ["屯門", "屯门", "TM"]
+    region: "New Territories"
+  - id: yuen_long
+    name: "Yuen Long"
+    aliases: ["元朗", "YL"]
+    region: "New Territories"
+  - id: north
+    name: "North"
+    aliases: ["北區", "北区"]
+    region: "New Territories"
+  - id: tai_po
+    name: "Tai Po"
+    aliases: ["大埔", "大埔南", "大埔北", "TP"]
+    region: "New Territories"
+  - id: sha_tin
+    name: "Sha Tin"
+    aliases: ["沙田", "ST"]
+    region: "New Territories"
+  - id: sai_kung
+    name: "Sai Kung"
+    aliases: ["西貢", "西贡", "SK"]
+    region: "New Territories"
+  - id: islands
+    name: "Islands"
+    aliases: ["離島", "离岛"]
+    region: "New Territories"

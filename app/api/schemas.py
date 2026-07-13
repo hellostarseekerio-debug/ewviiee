@@ -199,11 +199,14 @@ class WorkflowStep(BaseModel):
 class PosterOut(BaseModel):
     id: str
     district: str | None
+    region: str | None
     estate: str | None
     poster_title: str | None
     poster_type: str | None
     route_number: str | None
+    politicians: list[str] | None
     document_date: datetime | None
+    date_to: datetime | None
     dropbox_url: str | None
     language: str | None
     keywords: list[str] | None
@@ -219,6 +222,8 @@ class PosterOut(BaseModel):
     needs_review: bool
     dropbox_link_broken: bool | None
     dropbox_last_verified_at: datetime | None
+    extraction_confidence: dict[str, float] | None
+    extraction_sources: dict[str, str] | None
     ai_summary: str | None
     ocr_text: str | None
     attachments: list[dict] | None
@@ -239,11 +244,14 @@ class PosterCreateRequest(BaseModel):
     manual add covers the case of a single record typed in directly."""
 
     district: str | None = None
+    region: str | None = None
     estate: str | None = None
     poster_title: str | None = None
     poster_type: str | None = None
     route_number: str | None = None
+    politicians: list[str] | None = None
     document_date: datetime | None = None
+    date_to: datetime | None = None
     dropbox_url: str | None = None
     language: str | None = None
     keywords: list[str] | None = None
@@ -271,11 +279,14 @@ class PosterCreateRequest(BaseModel):
 
 class PosterUpdateRequest(BaseModel):
     district: str | None = None
+    region: str | None = None
     estate: str | None = None
     poster_title: str | None = None
     poster_type: str | None = None
     route_number: str | None = None
+    politicians: list[str] | None = None
     document_date: datetime | None = None
+    date_to: datetime | None = None
     dropbox_url: str | None = None
     language: str | None = None
     keywords: list[str] | None = None

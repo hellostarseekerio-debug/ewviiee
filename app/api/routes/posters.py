@@ -89,7 +89,7 @@ def import_posters(
     if payload.folder_id:
         get_folder_or_raise(db, payload.folder_id)  # 404s cleanly rather than saving a dangling folder_id
 
-    parsed_records = parse_poster_text(payload.text, rule_engine)
+    parsed_records = parse_poster_text(payload.text, rule_engine, db=db)
 
     results: list[PosterImportResult] = []
     to_insert: list[Poster] = []
@@ -146,11 +146,14 @@ def import_posters(
 
         poster = Poster(
             district=parsed.district,
+            region=parsed.region,
             estate=parsed.estate,
             poster_title=parsed.poster_title,
             poster_type=parsed.poster_type,
             route_number=parsed.route_number,
+            politicians=parsed.politicians or None,
             document_date=parsed.document_date,
+            date_to=parsed.date_to,
             dropbox_url=parsed.dropbox_url,
             language=parsed.language,
             keywords=parsed.keywords or None,
@@ -160,6 +163,8 @@ def import_posters(
             government_department=parsed.government_department,
             needs_review=parsed.needs_review,
             source="paste_import",
+            extraction_confidence=parsed.field_confidence or None,
+            extraction_sources=parsed.field_sources or None,
         )
         to_insert.append(poster)
         results.append(PosterImportResult(dropbox_url=parsed.dropbox_url, status="imported"))
@@ -252,6 +257,7 @@ def search_posters(
             or_(
                 Poster.poster_title.ilike(like),
                 Poster.district.ilike(like),
+                Poster.region.ilike(like),
                 Poster.estate.ilike(like),
                 Poster.poster_type.ilike(like),
                 Poster.route_number.ilike(like),

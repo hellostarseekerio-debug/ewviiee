@@ -177,11 +177,14 @@ export type PosterStatusValue =
 export interface PosterOut {
   id: string;
   district: string | null;
+  region: string | null;
   estate: string | null;
   poster_title: string | null;
   poster_type: string | null;
   route_number: string | null;
+  politicians: string[] | null;
   document_date: string | null;
+  date_to: string | null;
   dropbox_url: string | null;
   language: string | null;
   keywords: string[] | null;
@@ -197,6 +200,14 @@ export interface PosterOut {
   needs_review: boolean;
   dropbox_link_broken: boolean | null;
   dropbox_last_verified_at: string | null;
+  // Per-field confidence (0.0-1.0) / source ("regex" | "rule_engine" |
+  // "ai" | "default") from the metadata extraction engine - optional
+  // (`?`) since older backend deploys predate these two fields; a UI
+  // reading them must not assume they're always present (see the
+  // /posters crash postmortem - never index a field the API contract
+  // says exists without checking it actually arrived on the wire).
+  extraction_confidence?: Record<string, number> | null;
+  extraction_sources?: Record<string, string> | null;
   ai_summary: string | null;
   ocr_text: string | null;
   attachments: Record<string, unknown>[] | null;

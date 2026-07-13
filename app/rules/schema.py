@@ -15,6 +15,24 @@ class District:
     id: str
     name: str
     aliases: list[str] = field(default_factory=list)
+    # Hong Kong Island / Kowloon / New Territories - optional since not
+    # every deployment needs it, but populated for all 18 districts
+    # shipped in config/rules/districts.yaml.
+    region: str | None = None
+
+    @property
+    def native_name(self) -> str:
+        """The Chinese display name - the first CJK-containing alias, or
+        `name` itself if none of its aliases contain CJK text. Kept as a
+        derived property (not a separate YAML field) so existing entries
+        need no edits: `name` stays the stable English identifier every
+        other part of the codebase already reads, while parser-facing
+        output can show the office's actual working language without a
+        second name column to keep in sync."""
+        for alias in self.aliases:
+            if _has_cjk(alias):
+                return alias
+        return self.name
 
 
 @dataclass
@@ -23,6 +41,26 @@ class Estate:
     name: str
     district_id: str
     aliases: list[str] = field(default_factory=list)
+    # The following are all optional/best-effort "estate metadata" (see
+    # app/posters/estates.py's EstateMetadataService) - seed data only for
+    # the handful of estates it's populated for today, meant to be filled
+    # in by office staff over time via YAML edits, not a claim of
+    # completeness.
+    common_routes: list[str] = field(default_factory=list)
+    politicians: list[str] = field(default_factory=list)
+    dropbox_folder: str | None = None
+    poster_templates: list[str] = field(default_factory=list)
+
+    @property
+    def native_name(self) -> str:
+        for alias in self.aliases:
+            if _has_cjk(alias):
+                return alias
+        return self.name
+
+
+def _has_cjk(text: str) -> bool:
+    return any("一" <= ch <= "鿿" for ch in text)
 
 
 @dataclass
