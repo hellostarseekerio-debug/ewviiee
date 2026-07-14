@@ -148,11 +148,22 @@ def login(
         record_audit(actor=user.username, action="login_password_ok_awaiting_mfa")
         return TokenResponse(mfa_required=True, pending_token=pending_token)
 
+    # record_audit() here (~13ms, measured) was tried as a FastAPI
+    # BackgroundTask during login-latency profiling, deferring it past the
+    # response - rejected: it would let a security audit event (a
+    # successful/failed login, a lockout) be silently lost if the process
+    # crashes or restarts in the window between "response sent" and
+    # "background task actually runs", which is exactly the audit trail
+    # this file's own module docstring lists as a security control. 13ms
+    # isn't worth trading that guarantee away, so this stays synchronous.
     register_successful_login(user)
     db.commit()
     record_audit(actor=user.username, action="login_success")
     token = create_access_token(subject=user.username, role=user.role.value)
-    return TokenResponse(access_token=token)
+    # Returning the user object here (not just the token) saves the
+    # frontend a second sequential round trip to GET /api/auth/me before
+    # it can navigate anywhere - see the same profiling.
+    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/mfa/verify", response_model=TokenResponse)
@@ -191,7 +202,7 @@ def verify_mfa(request: Request, payload: MFAVerifyRequest, db: Session = Depend
     db.commit()
     record_audit(actor=user.username, action="login_success_mfa")
     token = create_access_token(subject=user.username, role=user.role.value)
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)

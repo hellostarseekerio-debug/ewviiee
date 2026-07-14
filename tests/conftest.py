@@ -27,14 +27,17 @@ def _isolated_settings(tmp_path, monkeypatch):
     from app.api.deps import get_plugin_manager
     from app.core.config import get_settings
     from app.core.database import reset_engine
+    from app.core.security import _get_pwd_context
 
     get_settings.cache_clear()
     reset_engine()
     get_plugin_manager.cache_clear()
+    _get_pwd_context.cache_clear()
     yield
     get_settings.cache_clear()
     reset_engine()
     get_plugin_manager.cache_clear()
+    _get_pwd_context.cache_clear()
 
 
 @pytest.fixture

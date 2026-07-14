@@ -71,16 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { mfaRequired: true, pendingToken: response.pending_token ?? undefined };
     }
     setToken(response.access_token);
-    const me = await authApi.me();
-    setUser(me);
+    // The login response already includes the user object - skips a
+    // second sequential round trip to GET /api/auth/me on every login.
+    // Falls back to fetching it separately only if an older backend
+    // deploy predates that field (see types.ts's comment on it).
+    setUser(response.user ?? (await authApi.me()));
     return { mfaRequired: false };
   }, []);
 
   const verifyMfa = useCallback(async (pendingToken: string, code: string) => {
     const response = await authApi.verifyMfa(pendingToken, code);
     setToken(response.access_token);
-    const me = await authApi.me();
-    setUser(me);
+    setUser(response.user ?? (await authApi.me()));
   }, []);
 
   return (

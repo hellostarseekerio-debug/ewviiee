@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import re
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Any
 
 from cryptography.fernet import Fernet
@@ -14,7 +15,16 @@ from passlib.context import CryptContext
 from app.core.config import get_settings
 from app.core.models import UserRole
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+@lru_cache
+def _get_pwd_context() -> CryptContext:
+    """Lazily built (not a module-level constant) so it reads
+    Settings.bcrypt_rounds - see that setting's docstring for the login-
+    latency tradeoff. Cached like every other per-process singleton in
+    this codebase (get_rule_engine, get_plugin_manager); tests that need a
+    different rounds value call this function's .cache_clear() alongside
+    get_settings().cache_clear(), same convention as everywhere else."""
+    return CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=get_settings().bcrypt_rounds)
 
 # Roles ranked lowest -> highest privilege for simple >= comparisons.
 _ROLE_RANK = {
@@ -54,21 +64,21 @@ def validate_password_policy(password: str) -> None:
 
 
 def hash_password(password: str) -> str:
-    return _pwd_context.hash(password)
+    return _get_pwd_context().hash(password)
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return _pwd_context.verify(password, hashed)
+    return _get_pwd_context().verify(password, hashed)
 
 
 def hash_recovery_code(code: str) -> str:
     """MFA recovery codes use the same bcrypt context as passwords - they
     are one-time-use secrets and deserve the same at-rest protection."""
-    return _pwd_context.hash(code)
+    return _get_pwd_context().hash(code)
 
 
 def verify_recovery_code(code: str, hashed: str) -> bool:
-    return _pwd_context.verify(code, hashed)
+    return _get_pwd_context().verify(code, hashed)
 
 
 def is_account_locked(user) -> bool:

@@ -82,6 +82,12 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     mfa_required: bool = False
     pending_token: str | None = None
+    # Included on a successful login so the frontend doesn't need a
+    # second round trip to GET /api/auth/me just to learn who logged in -
+    # see the login-latency profiling that motivated this (login used to
+    # sequentially await token issuance *then* a separate /me call before
+    # the UI could navigate anywhere).
+    user: UserOut | None = None
 
 
 class MFASetupResponse(BaseModel):

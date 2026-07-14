@@ -9,6 +9,12 @@ export interface TokenResponse {
   token_type: string;
   mfa_required: boolean;
   pending_token: string | null;
+  // Present on a successful login so the frontend can skip a second
+  // round trip to GET /api/auth/me - optional (`?`) since an older
+  // backend deploy predates this field (see the /posters crash
+  // postmortem: never assume a field arrived just because the type says
+  // so - fall back to fetching it separately when absent).
+  user?: UserOut | null;
 }
 
 export interface UserOut {

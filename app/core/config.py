@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-in-production")
     encryption_key: str | None = None
     access_token_expire_minutes: int = 60
+    # bcrypt work factor for password hashing/verification. Each +1 roughly
+    # doubles verify time (measured on this platform's reference hardware:
+    # 12 -> ~260ms, 11 -> ~130ms, 10 -> ~65ms) - 12 is a common modern
+    # default, but on shared/constrained production CPUs it can dominate
+    # login latency. 10 is still within OWASP's accepted minimum (>=10) for
+    # bcrypt and is the default here specifically to keep login latency
+    # predictable; raise it back to 12+ via this setting if the deployment
+    # has CPU headroom to spare and prefers the larger security margin.
+    bcrypt_rounds: int = 10
     cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
     api_host: str = "127.0.0.1"
     api_port: int = 8000
