@@ -97,6 +97,46 @@ estates:
     name: "Fu Heng Estate"
     district_id: tai_po
     aliases: ["富亨邨"]
+  - id: fu_shin_estate
+    name: "Fu Shin Estate"
+    district_id: tai_po
+    aliases: ["富善邨"]
+  - id: on_chee_court
+    name: "On Chee Court"
+    district_id: tai_po
+    aliases: ["安慈苑"]
+  - id: chung_nga_court
+    name: "Chung Nga Court"
+    district_id: tai_po
+    aliases: ["頌雅苑", "颂雅苑"]
+  - id: wan_tau_tong_estate
+    name: "Wan Tau Tong Estate"
+    district_id: tai_po
+    aliases: ["運頭塘邨", "运头塘邨"]
+  - id: tai_yuen_estate
+    name: "Tai Yuen Estate"
+    district_id: tai_po
+    aliases: ["大元邨"]
+  - id: tai_ping_estate
+    name: "Tai Ping Estate"
+    district_id: tai_po
+    aliases: ["太平邨"]
+  - id: ching_ho_estate
+    name: "Ching Ho Estate"
+    district_id: tai_po
+    aliases: ["正和邨"]
+  - id: po_heung_estate
+    name: "Po Heung Estate"
+    district_id: tai_po
+    aliases: ["寶鄉邨", "宝乡邨"]
+  - id: yee_fu_court
+    name: "Yee Fu Court"
+    district_id: tai_po
+    aliases: ["怡富苑"]
+  - id: fu_wo_estate
+    name: "Fu Wo Estate"
+    district_id: tai_po
+    aliases: ["富蝶邨", "富蝴邨"]
 
   - id: tin_yiu_estate
     name: "Tin Yiu Estate"

@@ -84,6 +84,40 @@ def test_head_schema_has_folders_posters_folder_id_and_export_jobs():
     assert "step_history" in application_columns
     assert "ai_logs" in application_columns
 
+    assert "metadata_extraction_cache" in tables
+    assert "learned_field_corrections" in tables
+    poster_columns_v2 = {c["name"] for c in inspector.get_columns("posters")}
+    assert "region" in poster_columns_v2
+    assert "politicians" in poster_columns_v2
+    assert "date_to" in poster_columns_v2
+    assert "extraction_confidence" in poster_columns_v2
+    assert "extraction_sources" in poster_columns_v2
+
+    correction_columns = {c["name"] for c in inspector.get_columns("learned_field_corrections")}
+    assert "key_type" in correction_columns
+    assert "key_value" in correction_columns
+    assert "field" in correction_columns
+    assert "value" in correction_columns
+
+
+def test_downgrading_from_head_removes_learned_corrections_table():
+    """0011 (learned_field_corrections) is now head - downgrading one step
+    must cleanly remove it while leaving 0010's metadata-extraction-v2
+    columns intact."""
+    cfg = _alembic_config()
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0010")
+
+    engine = sa.create_engine(f"sqlite:///{_current_db_path()}")
+    inspector = sa.inspect(engine)
+    tables = set(inspector.get_table_names())
+    assert "learned_field_corrections" not in tables
+    assert "metadata_extraction_cache" in tables
+
+    poster_columns = {c["name"] for c in inspector.get_columns("posters")}
+    assert "region" in poster_columns
+    assert "extraction_confidence" in poster_columns
+
 
 def test_downgrading_to_0006_removes_folder_support_cleanly():
     """Downgrading from head to 0006 must cleanly remove folders/

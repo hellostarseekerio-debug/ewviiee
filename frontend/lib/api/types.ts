@@ -195,6 +195,7 @@ export interface PosterOut {
   language: string | null;
   keywords: string[] | null;
   notes: string | null;
+  source_text: string | null;
   workflow_steps: WorkflowStep[] | null;
   approval_status: "pending" | "approved" | "rejected";
   status: PosterStatusValue;

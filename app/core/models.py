@@ -583,3 +583,34 @@ class MetadataExtractionCache(Base):
     text_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     result: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class LearnedFieldCorrection(Base):
+    """A staff-made correction the parser remembers for next time - see
+    app/posters/corrections.py. `key_type`/`key_value` name the anchor a
+    future parse can recognise again (today, always `key_type="estate_name"`,
+    `key_value=<the estate name the parser already resolved correctly>`,
+    since that's the concrete, well-defined gap this exists for: the
+    estate resolves but its district doesn't, staff correct the district
+    once, and every future record mentioning that same estate name gets
+    the district filled in automatically from then on). Deliberately
+    generic (`field`/`value` are plain strings, not restricted to
+    district) so the same table can grow to cover other learned
+    corrections (poster_type, etc.) without a schema change.
+    """
+
+    __tablename__ = "learned_field_corrections"
+    __table_args__ = (
+        UniqueConstraint("key_type", "key_value", "field", name="uq_learned_correction_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    key_type: Mapped[str] = mapped_column(String(32), index=True)
+    key_value: Mapped[str] = mapped_column(String(256), index=True)
+    field: Mapped[str] = mapped_column(String(32))
+    value: Mapped[str] = mapped_column(String(256))
+    corrected_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

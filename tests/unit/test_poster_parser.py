@@ -327,8 +327,11 @@ def test_title_that_is_only_punctuation_returns_none_not_a_dash():
 def test_title_with_real_content_extracts_segment_based_title():
     """"20260707-海報-好消息" splits into a date segment, an exact
     poster-type-keyword segment, and the real title - "好消息" - rather
-    than being stored as the whole raw line."""
-    title, confidence, source = _extract_title("20260707-海報-好消息")
+    than being stored as the whole raw line. `type_segment="海報"` mirrors
+    what parse_block computes via _extract_poster_type_from_segments
+    before calling _extract_title - only the segment that actually won
+    the poster_type slot is excluded from the title candidates."""
+    title, confidence, source = _extract_title("20260707-海報-好消息", type_segment="海報")
     assert title == "好消息"
     assert confidence > 0
     assert source == "regex"

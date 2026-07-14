@@ -88,6 +88,19 @@ _POSTER_TYPE_KEYWORDS = {
     "活动": "event",
     "海報": "poster",
     "海报": "poster",
+    # Only matched by exact-segment classification (see
+    # _extract_poster_type_from_segments) - a segment that's also a valid
+    # title candidate elsewhere ("好消息" as a record's actual subject, not
+    # its category marker) still wins as title whenever an earlier segment
+    # (e.g. "海報") already claimed the type slot; this key only fires when
+    # "好消息" is the ONLY type-like segment present.
+    "好消息": "good_news",
+    "好消息通告": "good_news",
+    "政策": "policy",
+    "社區": "community",
+    "社区": "community",
+    "宣傳": "campaign",
+    "宣传": "campaign",
     "通告": "notice",
     "通知": "notice",
     "公告": "announcement",
@@ -292,13 +305,23 @@ def _is_route_description_segment(segment: str) -> bool:
     return bool(tokens) and "".join(tokens) == segment
 
 
-def _is_non_title_segment(segment: str) -> bool:
+def _is_non_title_segment(segment: str, *, type_segment: str | None = None) -> bool:
     """True if `segment` (one hyphen-delimited piece of a metadata line)
     is fully explained by another field this parser extracts elsewhere,
-    and so should not be folded into the title."""
+    and so should not be folded into the title.
+
+    `type_segment` is the *one* segment actually chosen as the record's
+    poster_type (see _extract_poster_type_from_segments) - only that exact
+    segment is excluded as "the type marker" here. A different segment
+    that also happens to be a dict key (e.g. "好消息" when an earlier
+    segment "海報" already won the type slot) is left as fair game for the
+    title instead of being blanket-excluded just for appearing in
+    _POSTER_TYPE_KEYWORDS - the same word can be either a category marker
+    or a record's actual descriptive subject depending on context, and
+    only the segment that *won* is the former."""
     if _DATE_RE.fullmatch(segment):
         return True
-    if segment in _POSTER_TYPE_KEYWORDS:
+    if type_segment is not None and segment == type_segment:
         return True
     if len(segment) >= _MIN_ROUTE_LENGTH and _ROUTE_RE.fullmatch(segment):
         return True
@@ -309,7 +332,9 @@ def _is_non_title_segment(segment: str) -> bool:
     return False
 
 
-def _extract_title(text: str, district_tokens: list[str] | None = None) -> tuple[str | None, float, str]:
+def _extract_title(
+    text: str, district_tokens: list[str] | None = None, *, type_segment: str | None = None
+) -> tuple[str | None, float, str]:
     """Returns (title, confidence, source)."""
     match = _BRACKET_RE.search(text)
     if match:
@@ -330,7 +355,7 @@ def _extract_title(text: str, district_tokens: list[str] | None = None) -> tuple
 
     segments = _split_segments(stripped)
     if len(segments) > 1:
-        title_segments = [s for s in segments if not _is_non_title_segment(s)]
+        title_segments = [s for s in segments if not _is_non_title_segment(s, type_segment=type_segment)]
         if not title_segments:
             # Every segment was a date/type/route/route-description - there
             # is genuinely no title content here, not a parsing failure to
@@ -364,7 +389,7 @@ def _extract_poster_type(text: str) -> str | None:
     return None
 
 
-def _extract_poster_type_from_segments(segments: list[str]) -> str | None:
+def _extract_poster_type_from_segments(segments: list[str]) -> tuple[str | None, str | None]:
     """Segment-exact-match poster type detection: only a hyphen-delimited
     segment that *exactly* equals a known type keyword counts (the first
     one found, in order) - unlike _extract_poster_type's whole-text
@@ -372,11 +397,16 @@ def _extract_poster_type_from_segments(segments: list[str]) -> str | None:
     embedded within a longer descriptive segment (e.g. "工程" inside
     "...改善工程" is part of the title's subject matter, not a poster-type
     marker, and must not be misclassified as the "works" category just
-    because that word appears somewhere in the title)."""
+    because that word appears somewhere in the title).
+
+    Returns (poster_type, matched_segment) - the caller needs the exact
+    segment text too, so _extract_title can exclude only *that* segment
+    from the title rather than every segment that happens to also be a
+    dict key (see _is_non_title_segment's `type_segment` param)."""
     for segment in segments:
         if segment in _POSTER_TYPE_KEYWORDS:
-            return _POSTER_TYPE_KEYWORDS[segment]
-    return None
+            return _POSTER_TYPE_KEYWORDS[segment], segment
+    return None, None
 
 
 def _extract_version(text: str) -> str | None:
@@ -527,10 +557,12 @@ def parse_block(
     parsed.field_sources["route_number"] = "regex" if parsed.route_number else "none"
 
     segments = _split_segments(text_only)
+    type_segment: str | None = None
     try:
-        parsed.poster_type = (
-            _extract_poster_type_from_segments(segments) if len(segments) > 1 else _extract_poster_type(text_only)
-        )
+        if len(segments) > 1:
+            parsed.poster_type, type_segment = _extract_poster_type_from_segments(segments)
+        else:
+            parsed.poster_type = _extract_poster_type(text_only)
     except Exception:
         parsed.warnings.append("poster_type_extraction_failed")
 
@@ -583,18 +615,44 @@ def parse_block(
         except Exception:
             parsed.warnings.append("estate_extraction_failed")
 
+    learned_district = False
+    if parsed.district is None and parsed.estate is not None and db is not None:
+        # The estate resolved (via config/rules/estates.yaml or the regex
+        # suffix fallback) but isn't in the curated YAML, so nothing knows
+        # its district yet - check whether staff have already corrected
+        # this exact estate name on a past record (app.posters.corrections)
+        # before giving up. This is what makes the parser improve over
+        # time without a YAML edit + redeploy for every unlisted estate.
+        try:
+            from app.posters.corrections import lookup_correction
+
+            learned = lookup_correction(db, key_type="estate_name", key_value=parsed.estate, field="district")
+            if learned:
+                parsed.district = learned
+                learned_district = True
+        except Exception:
+            parsed.warnings.append("learned_correction_lookup_failed")
+
     # `district` may have come directly from a district-text match
-    # (district_confidence) or, more often, from the estate that resolved
-    # first (estate_confidence) - either is a real, confident resolution,
-    # not "not found".
+    # (district_confidence), from the estate that resolved first
+    # (estate_confidence), or from a staff-taught correction
+    # (learned_district) - all three are real, confident resolutions, not
+    # "not found". A learned correction is staff-verified ground truth, so
+    # it's reported at full confidence, not the estate-fallback's 0.6.
+    if learned_district:
+        district_confidence = 1.0
     effective_district_confidence = district_confidence if district_confidence is not None else estate_confidence
     parsed.field_confidence["district"] = effective_district_confidence if effective_district_confidence else 0.0
-    parsed.field_sources["district"] = "rule_engine" if effective_district_confidence else "none"
+    parsed.field_sources["district"] = (
+        "learned" if learned_district else ("rule_engine" if effective_district_confidence else "none")
+    )
     parsed.field_confidence["estate"] = estate_confidence if estate_confidence else (0.6 if parsed.estate else 0.0)
     parsed.field_sources["estate"] = "rule_engine" if estate_confidence else ("regex" if parsed.estate else "none")
 
     try:
-        parsed.poster_title, title_confidence, title_source = _extract_title(text_only, resolved_district_tokens)
+        parsed.poster_title, title_confidence, title_source = _extract_title(
+            text_only, resolved_district_tokens, type_segment=type_segment
+        )
     except Exception:
         parsed.warnings.append("title_extraction_failed")
         title_confidence, title_source = 0.0, "none"

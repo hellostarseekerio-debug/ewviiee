@@ -217,6 +217,7 @@ class PosterOut(BaseModel):
     language: str | None
     keywords: list[str] | None
     notes: str | None
+    source_text: str | None
     workflow_steps: list[WorkflowStep] | None
     approval_status: str
     status: str

@@ -55,6 +55,7 @@ from app.core.security import role_rank
 from app.core.status_workflow import StatusTransitionError
 from app.folders.service import FolderNotFoundError, get_folder_or_raise, subtree_folder_ids
 from app.folders.suggestions import resolve_or_create_poster_folder
+from app.posters.corrections import record_correction
 from app.posters.duplicates import find_all_duplicates
 from app.posters.parser import parse_poster_text
 from app.posters.status import approval_status_for, required_role_for_transition, validate_poster_transition
@@ -841,6 +842,26 @@ def update_poster(
         # state would be actively misleading.
         poster.dropbox_link_broken = None
         poster.dropbox_last_verified_at = None
+
+    if "district" in updates and updates["district"] and poster.estate:
+        # A correction is only worth remembering when it's actually
+        # teaching the parser something new - a low-confidence/blank
+        # district being confirmed/filled in, not a confident match being
+        # second-guessed for unrelated reasons. See app/posters/
+        # corrections.py: this is what lets an estate the parser can't yet
+        # place get its district auto-filled on every future import that
+        # mentions it, without a config edit or a redeploy.
+        old_confidence = (poster.extraction_confidence or {}).get("district")
+        was_low_confidence = poster.district is None or (old_confidence is not None and old_confidence < 0.8)
+        if was_low_confidence and updates["district"] != poster.district:
+            record_correction(
+                db,
+                key_type="estate_name",
+                key_value=poster.estate,
+                field="district",
+                value=updates["district"],
+                corrected_by=current_user.username,
+            )
 
     for key, value in updates.items():
         setattr(poster, key, value)

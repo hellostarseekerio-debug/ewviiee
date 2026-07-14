@@ -334,3 +334,52 @@ def test_fuzzy_search_returns_empty_for_genuinely_unrelated_query(bootstrap_admi
     response = client.get("/api/posters/search?q=zzzzzzzzzzzzzzzzzz", headers=headers)
     assert response.status_code == 200
     assert response.json()["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Learned field corrections (app/posters/corrections.py): a staff-taught
+# district correction for an unlisted estate must be remembered and applied
+# automatically the next time that same estate name is imported.
+# ---------------------------------------------------------------------------
+
+
+def test_correcting_district_is_remembered_for_future_imports(bootstrap_admin):
+    client, headers = bootstrap_admin
+    text = "20260710-通告-40X-未知苑\nhttps://www.dropbox.com/scl/fo/learn-1\n"
+
+    first = client.post("/api/posters/import", json={"text": text}, headers=headers)
+    poster_id = first.json()["results"][0]["id"]
+    poster = client.get(f"/api/posters/{poster_id}", headers=headers).json()
+    assert poster["estate"] == "未知苑"
+    assert poster["district"] is None
+
+    patched = client.patch(f"/api/posters/{poster_id}", json={"district": "大埔"}, headers=headers)
+    assert patched.status_code == 200
+    assert patched.json()["district"] == "大埔"
+
+    text2 = "20260711-通告-41X-未知苑\nhttps://www.dropbox.com/scl/fo/learn-2\n"
+    second = client.post("/api/posters/import", json={"text": text2}, headers=headers)
+    poster2_id = second.json()["results"][0]["id"]
+    poster2 = client.get(f"/api/posters/{poster2_id}", headers=headers).json()
+    assert poster2["district"] == "大埔"
+    assert poster2["extraction_sources"]["district"] == "learned"
+
+
+def test_correcting_an_already_confident_district_does_not_overwrite_learning(bootstrap_admin):
+    """A confidently-resolved district (from config/rules/estates.yaml)
+    being edited for an unrelated reason must not silently teach the
+    parser something wrong - only a low-confidence/blank district being
+    filled in should be remembered."""
+    client, headers = bootstrap_admin
+    text = "20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/no-learn-1\n"
+    first = client.post("/api/posters/import", json={"text": text}, headers=headers)
+    poster_id = first.json()["results"][0]["id"]
+    poster = client.get(f"/api/posters/{poster_id}", headers=headers).json()
+    assert poster["district"] == "沙田"  # confidently resolved via config/rules/estates.yaml
+
+    client.patch(f"/api/posters/{poster_id}", json={"district": "Some Other District"}, headers=headers)
+
+    text2 = "20260711-通告-41X-愉翠苑\nhttps://www.dropbox.com/scl/fo/no-learn-2\n"
+    second = client.post("/api/posters/import", json={"text": text2}, headers=headers)
+    poster2 = client.get(f"/api/posters/{second.json()['results'][0]['id']}", headers=headers).json()
+    assert poster2["district"] == "沙田"  # unaffected by the unrelated edit

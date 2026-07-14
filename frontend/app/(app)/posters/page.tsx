@@ -64,6 +64,7 @@ import { PosterStatusBadge } from "@/components/documents/status-badge";
 import { FolderTree, posterDragProps } from "@/components/folders/folder-tree";
 import { FolderBreadcrumbs } from "@/components/folders/breadcrumbs";
 import { FolderPickerDialog } from "@/components/folders/folder-picker-dialog";
+import { ConfidenceBadge, ReviewPanel } from "@/components/posters/review-panel";
 
 // Mirrors app/posters/status.py's POSTER_STATUS_TRANSITIONS - purely to
 // decide which options to *offer* in the menu below. The server is the
@@ -255,6 +256,7 @@ export default function PosterArchivePage() {
   const [movePickerOpen, setMovePickerOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<PosterOut | null>(null);
   const [exporting, setExporting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -718,7 +720,19 @@ export default function PosterArchivePage() {
                 </TableHeader>
                 <TableBody>
                   {posters.map((p) => (
-                    <TableRow key={p.id} {...posterDragProps(p.id, selected)}>
+                    <TableRow
+                      key={p.id}
+                      {...posterDragProps(p.id, selected)}
+                      className={p.needs_review ? "cursor-pointer bg-warning/5 hover:bg-warning/10" : undefined}
+                      onClick={(e) => {
+                        if (!p.needs_review) return;
+                        // Ignore clicks on interactive elements within the row
+                        // (checkbox, star, status menu, dropbox buttons, action
+                        // icons) - only the row background itself opens review.
+                        if ((e.target as HTMLElement).closest("button, a, input")) return;
+                        setReviewTarget(p);
+                      }}
+                    >
                       <TableCell>
                         <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
                       </TableCell>
@@ -738,6 +752,7 @@ export default function PosterArchivePage() {
                               <AlertTriangle className="h-3 w-3" /> Needs review
                             </Badge>
                           )}
+                          <ConfidenceBadge poster={p} />
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -780,7 +795,16 @@ export default function PosterArchivePage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {posters.map((p) => (
-              <Card key={p.id} {...posterDragProps(p.id, selected)}>
+              <Card
+                key={p.id}
+                {...posterDragProps(p.id, selected)}
+                className={p.needs_review ? "cursor-pointer border-warning/40 bg-warning/5" : undefined}
+                onClick={(e) => {
+                  if (!p.needs_review) return;
+                  if ((e.target as HTMLElement).closest("button, a, input")) return;
+                  setReviewTarget(p);
+                }}
+              >
                 <CardContent className="flex flex-col gap-2 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1">
@@ -810,6 +834,7 @@ export default function PosterArchivePage() {
                         <AlertTriangle className="h-3 w-3" /> Needs review
                       </Badge>
                     )}
+                    <ConfidenceBadge poster={p} />
                   </div>
                   <div className="mt-2 flex items-center justify-between">
                     <DropboxLinkCell poster={p} onChanged={load} />
@@ -885,6 +910,11 @@ export default function PosterArchivePage() {
               toast.error(err instanceof ApiError ? err.message : "Bulk edit failed");
             }
           }}
+        />
+        <ReviewPanel
+          poster={reviewTarget}
+          onOpenChange={(open) => !open && setReviewTarget(null)}
+          onSaved={refreshAll}
         />
       </div>
     </div>
