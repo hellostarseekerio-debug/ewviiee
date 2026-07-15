@@ -192,8 +192,24 @@ _HK_DISTRICTS_ZH = [
 # config/rules/estates.yaml list (and no AI provider is configured to fall
 # back to). Deliberately only a suffix heuristic - never treated as more
 # authoritative than a real RuleEngine alias/fuzzy match.
+#
+# The prefix quantifier is non-greedy ({2,8}?), not {2,8}: a greedy prefix
+# backtracks from the *longest* possible match, so on text like "華明邨居民
+# 請注意" (Wah Ming Estate *residents*, please note...) it walks past the
+# real "華明邨" suffix match and keeps extending until it hits the next
+# suffix character it can reach - here "居" from "居民" - returning the
+# corrupted estate name "華明邨居" instead of "華明邨". Every one of these
+# suffix characters (居/城/坊/村/苑/邨...) also opens extremely common
+# unrelated words (居民 "residents", 城市 "city", 村民 "villagers"), so a
+# greedy prefix reliably corrupts the estate name whenever real body text
+# follows it - and since the corrupted string differs per occurrence
+# (whatever word happens to follow), it also breaks the learned-corrections
+# cache (app.posters.corrections): every mention of the same real estate
+# gets treated as a distinct, never-before-seen key, so district never
+# gets learned for it. Non-greedy stops at the first (shortest, correct)
+# suffix match instead.
 _ESTATE_SUFFIX_RE = re.compile(
-    r"([一-鿿]{2,8}(?:邨|苑|村|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾|中心))"
+    r"([一-鿿]{2,8}?(?:邨|苑|村|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾|中心))"
 )
 
 # A segment made up of nothing but estate/building names and route

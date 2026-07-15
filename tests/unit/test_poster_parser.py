@@ -678,10 +678,32 @@ def test_named_estates_resolve_to_the_correct_district(rule_engine, estate, expe
 def test_estate_suffix_fallback_recognises_cun_and_centre():
     """村 ("village") and 中心 ("centre") - suffixes not covered before,
     alongside the existing 邨/苑/etc set."""
-    block = "20260710-通告-未列邨村\nhttps://www.dropbox.com/scl/fi/village/poster.pdf?dl=0"
+    block = "20260710-通告-未列村\nhttps://www.dropbox.com/scl/fi/village/poster.pdf?dl=0"
     parsed = parse_block(block, rule_engine=None)
-    assert parsed.estate == "未列邨村"
+    assert parsed.estate == "未列村"
 
     block2 = "20260710-通告-社區中心\nhttps://www.dropbox.com/scl/fi/centre/poster.pdf?dl=0"
     parsed2 = parse_block(block2, rule_engine=None)
     assert parsed2.estate == "社區中心"
+
+
+def test_estate_suffix_fallback_stops_at_first_suffix_not_last(rule_engine):
+    """Regression test for a real bug found by tracing a live import: the
+    suffix fallback's prefix quantifier used to be greedy, so on text like
+    "華明邨居民請注意..." (Wah Ming Estate *residents*, please note...) it
+    backtracked from the longest possible match and returned the corrupted
+    "華明邨居" - swallowing "居" from the unrelated word "居民" - instead of
+    stopping at the real, shorter "華明邨" match. Every one of these suffix
+    characters (居/城/坊/村/苑/邨...) opens a common unrelated word, so this
+    corrupted the estate name on real free-text posters, and since the
+    corruption differs per occurrence it also defeated the
+    learned-corrections cache (app.posters.corrections) - the same real
+    estate never accumulated a reusable district answer because each
+    mention produced a different, novel-looking corrupted key."""
+    block = "房屋署通告：華明邨居民請注意最新交通安排\nhttps://www.dropbox.com/scl/fi/estate-overreach/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine)
+    assert parsed.estate == "華明邨"
+
+    block2 = "沙角邨居民請留意停水安排\nhttps://www.dropbox.com/scl/fi/estate-overreach-2/poster.pdf?dl=0"
+    parsed2 = parse_block(block2, rule_engine)
+    assert parsed2.estate == "沙角邨"
