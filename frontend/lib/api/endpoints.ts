@@ -21,6 +21,7 @@ import type {
   PosterLinkHistoryOut,
   PosterListResponse,
   PosterOut,
+  PosterReparseResponse,
   PosterStatusChangeRequest,
   PosterUpdateRequest,
   PosterZipExportRequest,
@@ -181,6 +182,7 @@ export const postersApi = {
   bulkStatus: (payload: PosterBulkStatusRequest) =>
     apiFetch<{ changed: number; skipped: string[] }>("/api/posters/bulk-status", { method: "POST", body: payload }),
   duplicates: () => apiFetch<DuplicateGroupOut[]>("/api/posters/duplicates"),
+  reparse: () => apiFetch<PosterReparseResponse>("/api/posters/reparse", { method: "POST" }),
   verifyLink: (id: string) =>
     apiFetch<LinkVerifyResultOut>(`/api/posters/${id}/verify-link`, { method: "POST" }),
   linkHistory: (id: string) => apiFetch<PosterLinkHistoryOut[]>(`/api/posters/${id}/link-history`),

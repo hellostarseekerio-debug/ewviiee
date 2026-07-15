@@ -282,6 +282,17 @@ export interface LinkVerifyResultOut {
   dropbox_last_verified_at: string | null;
 }
 
+export interface PosterReparseResult {
+  id: string;
+  fields_filled: Record<string, string>;
+}
+
+export interface PosterReparseResponse {
+  scanned: number;
+  updated: number;
+  results: PosterReparseResult[];
+}
+
 export interface PosterLinkHistoryOut {
   id: string;
   old_url: string | null;

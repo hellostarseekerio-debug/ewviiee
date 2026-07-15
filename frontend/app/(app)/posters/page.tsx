@@ -258,6 +258,7 @@ export default function PosterArchivePage() {
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<PosterOut | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [reparsing, setReparsing] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTree = useCallback(async () => {
@@ -417,6 +418,19 @@ export default function PosterArchivePage() {
     }
   }
 
+  async function handleReparse() {
+    setReparsing(true);
+    try {
+      const result = await postersApi.reparse();
+      toast.success(`Re-parsed ${result.scanned} record(s) - ${result.updated} updated`);
+      refreshAll();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Reparse failed");
+    } finally {
+      setReparsing(false);
+    }
+  }
+
   function pollExportJob(jobId: string) {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
@@ -554,6 +568,9 @@ export default function PosterArchivePage() {
             </Button>
             {hasRole(user, "editor") && (
               <>
+                <Button variant="outline" loading={reparsing} onClick={handleReparse}>
+                  <RefreshCw className="h-4 w-4" /> Re-parse existing
+                </Button>
                 <Button variant="outline" onClick={() => setEditTarget("new")}>
                   <Plus className="h-4 w-4" /> Add manually
                 </Button>

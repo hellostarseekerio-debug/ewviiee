@@ -383,3 +383,100 @@ def test_correcting_an_already_confident_district_does_not_overwrite_learning(bo
     second = client.post("/api/posters/import", json={"text": text2}, headers=headers)
     poster2 = client.get(f"/api/posters/{second.json()['results'][0]['id']}", headers=headers).json()
     assert poster2["district"] == "沙田"  # unaffected by the unrelated edit
+
+
+# ---------------------------------------------------------------------------
+# Reparse backfill (POST /api/posters/reparse): parser improvements only
+# help *future* imports until existing rows are explicitly re-parsed against
+# the current parser. This simulates the exact "old row stuck with stale
+# values" scenario by writing a row directly with a deliberately-blank
+# district/estate (as if it had been imported by an older, weaker parser),
+# then verifying reparse fills it in from the same stored source_text.
+# ---------------------------------------------------------------------------
+
+
+def test_reparse_backfills_a_stale_row_without_touching_a_populated_one(bootstrap_admin):
+    from app.core.database import get_session_factory
+    from app.core.models import Poster
+
+    client, headers = bootstrap_admin
+
+    stale_source_text = "20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/reparse-stale"
+    Session = get_session_factory()
+    db = Session()
+    stale = Poster(
+        poster_title=None,
+        district=None,
+        estate=None,
+        route_number=None,
+        poster_type=None,
+        dropbox_url="https://www.dropbox.com/scl/fo/reparse-stale",
+        source_text=stale_source_text,
+        source="paste_import",
+        needs_review=True,
+    )
+    db.add(stale)
+    db.commit()
+    stale_id = stale.id
+    db.close()
+
+    already_good = client.post(
+        "/api/posters/import",
+        json={"text": "20260711-通告-41X-愉翠苑\nhttps://www.dropbox.com/scl/fo/reparse-already-good"},
+        headers=headers,
+    ).json()["results"][0]["id"]
+    before = client.get(f"/api/posters/{already_good}", headers=headers).json()
+    assert before["district"] == "沙田"
+
+    response = client.post("/api/posters/reparse", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scanned"] >= 1
+    assert body["updated"] >= 1
+
+    reparsed_ids = [r["id"] for r in body["results"]]
+    assert stale_id in reparsed_ids
+    assert already_good not in reparsed_ids  # nothing was blank, nothing to fill in
+
+    stale_after = client.get(f"/api/posters/{stale_id}", headers=headers).json()
+    assert stale_after["district"] == "沙田"
+    assert stale_after["estate"] == "愉翠苑"
+    assert stale_after["route_number"] == "40X"
+    assert stale_after["needs_review"] is False
+
+    result_entry = next(r for r in body["results"] if r["id"] == stale_id)
+    assert result_entry["fields_filled"]["district"] == "rule_engine"
+
+
+def test_reparse_never_overwrites_an_existing_value(bootstrap_admin):
+    """A field that already has a value - even one that differs from what
+    the parser would now produce - is left completely alone."""
+    from app.core.database import get_session_factory
+    from app.core.models import Poster
+
+    client, headers = bootstrap_admin
+
+    Session = get_session_factory()
+    db = Session()
+    row = Poster(
+        poster_title="Manually corrected title",
+        district="Manually Set District",
+        estate=None,
+        route_number=None,
+        poster_type=None,
+        dropbox_url="https://www.dropbox.com/scl/fo/reparse-manual-value",
+        source_text="20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/reparse-manual-value",
+        source="paste_import",
+        needs_review=True,
+    )
+    db.add(row)
+    db.commit()
+    row_id = row.id
+    db.close()
+
+    client.post("/api/posters/reparse", headers=headers)
+
+    after = client.get(f"/api/posters/{row_id}", headers=headers).json()
+    assert after["poster_title"] == "Manually corrected title"
+    assert after["district"] == "Manually Set District"
+    assert after["estate"] == "愉翠苑"  # the genuinely-blank field is still filled in

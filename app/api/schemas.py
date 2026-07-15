@@ -403,6 +403,24 @@ class PosterLinkHistoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PosterReparseResult(BaseModel):
+    """One record's outcome from POST /api/posters/reparse - `fields_filled`
+    maps each field that was blank and is now populated to the source that
+    filled it in (mirrors Poster.extraction_sources: "regex" | "rule_engine"
+    | "learned" | "ai" | "default"), so it's visible exactly what changed
+    and where the new value came from - never which fields were merely
+    re-confirmed, since a value that was already present is left untouched."""
+
+    id: str
+    fields_filled: dict[str, str]
+
+
+class PosterReparseResponse(BaseModel):
+    scanned: int
+    updated: int
+    results: list[PosterReparseResult]
+
+
 # --- Folders: app/folders/service.py - generic, not poster-specific ------
 
 

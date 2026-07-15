@@ -42,6 +42,8 @@ from app.api.schemas import (
     PosterLinkHistoryOut,
     PosterListResponse,
     PosterOut,
+    PosterReparseResponse,
+    PosterReparseResult,
     PosterStatusChangeRequest,
     PosterUpdateRequest,
     PosterZipExportRequest,
@@ -57,7 +59,7 @@ from app.folders.service import FolderNotFoundError, get_folder_or_raise, subtre
 from app.folders.suggestions import resolve_or_create_poster_folder
 from app.posters.corrections import record_correction
 from app.posters.duplicates import find_all_duplicates
-from app.posters.parser import parse_poster_text
+from app.posters.parser import parse_block, parse_poster_text
 from app.posters.status import approval_status_for, required_role_for_transition, validate_poster_transition
 from app.posters.validation import InvalidDropboxUrlError, assert_valid_dropbox_url
 from app.rules.engine import RuleEngine
@@ -627,6 +629,95 @@ def bulk_update_posters(
         detail={"requested": len(payload.ids), "updated": updated, "fields": list(field_updates.keys())},
     )
     return {"updated": updated}
+
+
+# Every field the parser can fill that a blank/needs-review record might
+# be missing - re-checked per record in POST /api/posters/reparse. Kept as
+# a single source of truth so the "is this record a reparse candidate?"
+# filter and the "which fields did we just fill in?" diff use exactly the
+# same field list.
+_REPARSEABLE_FIELDS = ["district", "region", "estate", "poster_type", "route_number", "poster_title"]
+
+
+@router.post("/reparse", response_model=PosterReparseResponse)
+def reparse_posters(
+    db: Session = Depends(get_db),
+    rule_engine: RuleEngine = Depends(get_rule_engine),
+    current_user=Depends(require_role(UserRole.EDITOR)),
+):
+    """Re-runs the *current* parser against every already-imported record's
+    permanently-stored `source_text`, filling in only fields that are
+    still blank - never touching a value already present (whether it came
+    from the original parse or a staff correction).
+
+    Why this exists: parsing only ever happens once, at import time. Every
+    parser improvement shipped since a record was first imported has *no
+    effect on that record* until it's explicitly re-parsed - the record
+    keeps whatever the parser produced back when it was pasted in,
+    permanently, regardless of how much better the parser has since
+    gotten. This is the backfill operation that actually applies those
+    improvements to existing data; without it, a better parser only ever
+    helps future imports.
+
+    Only records with `source_text` (paste-import origin) and at least one
+    of the reparseable fields blank, or flagged `needs_review`, are
+    candidates - a manually-created or already-fully-populated record is
+    never touched."""
+    candidates = (
+        db.query(Poster)
+        .filter(Poster.source_text.isnot(None))
+        .filter(
+            or_(
+                Poster.needs_review.is_(True),
+                *[getattr(Poster, f).is_(None) for f in _REPARSEABLE_FIELDS],
+            )
+        )
+        .all()
+    )
+
+    results: list[PosterReparseResult] = []
+    for poster in candidates:
+        parsed = parse_block(poster.source_text, rule_engine, db=db)
+        if parsed is None:
+            continue
+
+        fields_filled: dict[str, str] = {}
+        for field in _REPARSEABLE_FIELDS:
+            current_value = getattr(poster, field)
+            new_value = getattr(parsed, field)
+            if not current_value and new_value:
+                setattr(poster, field, new_value)
+                fields_filled[field] = parsed.field_sources.get(field, "regex")
+
+        if parsed.politicians and not poster.politicians:
+            poster.politicians = parsed.politicians
+            fields_filled["politicians"] = "rule_engine"
+        if parsed.document_date and not poster.document_date:
+            poster.document_date = parsed.document_date
+            fields_filled["document_date"] = "regex"
+
+        if fields_filled:
+            # Merge, never overwrite, the confidence/source bookkeeping -
+            # a field already populated (and so left alone above) keeps
+            # whatever confidence/source it already had.
+            poster.extraction_confidence = {**(poster.extraction_confidence or {}), **{
+                f: parsed.field_confidence.get(f, 0.0) for f in fields_filled
+            }}
+            poster.extraction_sources = {**(poster.extraction_sources or {}), **fields_filled}
+            # A record only stops needing review once re-parsing actually
+            # resolved it - never flip an already-fine record to needing
+            # review, and never leave a now-resolved one still flagged.
+            if poster.needs_review and not parsed.needs_review:
+                poster.needs_review = False
+            results.append(PosterReparseResult(id=poster.id, fields_filled=fields_filled))
+
+    db.commit()
+    record_audit(
+        actor=current_user.username,
+        action="poster_reparse",
+        detail={"scanned": len(candidates), "updated": len(results)},
+    )
+    return PosterReparseResponse(scanned=len(candidates), updated=len(results), results=results)
 
 
 @router.post("/bulk-status", status_code=status.HTTP_200_OK)
