@@ -58,6 +58,22 @@ estates:
     name: "Lek Yuen Estate"
     district_id: sha_tin
     aliases: ["瀝源邨", "沥源邨"]
+  - id: mei_lam_estate
+    name: "Mei Lam Estate"
+    district_id: sha_tin
+    aliases: ["美林邨"]
+  - id: chun_shek_estate
+    name: "Chun Shek Estate"
+    district_id: sha_tin
+    aliases: ["秦石邨"]
+  - id: yuet_ming_court
+    name: "Yuet Ming Court"
+    district_id: sha_tin
+    aliases: ["乙明邨"]
+  - id: hin_keng_estate
+    name: "Hin Keng Estate"
+    district_id: sha_tin
+    aliases: ["顯徑邨", "显径邨"]
 
   - id: kwai_shing_east_estate
     name: "Kwai Shing East Estate"

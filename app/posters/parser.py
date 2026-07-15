@@ -193,7 +193,7 @@ _HK_DISTRICTS_ZH = [
 # back to). Deliberately only a suffix heuristic - never treated as more
 # authoritative than a real RuleEngine alias/fuzzy match.
 _ESTATE_SUFFIX_RE = re.compile(
-    r"([一-鿿]{2,8}(?:邨|苑|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾))"
+    r"([一-鿿]{2,8}(?:邨|苑|村|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾|中心))"
 )
 
 # A segment made up of nothing but estate/building names and route
@@ -202,7 +202,7 @@ _ESTATE_SUFFIX_RE = re.compile(
 # used by _extract_title to drop such a hyphen-delimited segment entirely
 # rather than fold it into the title.
 _ROUTE_DESCRIPTION_TOKEN_RE = re.compile(
-    r"(?:[一-鿿]{2,10}(?:邨|苑|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾)|來往|来往|往|至)"
+    r"(?:[一-鿿]{2,10}(?:邨|苑|村|花園|花园|大廈|大厦|樓|楼|閣|阁|城|居|坊|軒|轩|灣|湾|中心)|來往|来往|往|至)"
 )
 
 # After every other cleanup, a title made of nothing but punctuation/
@@ -287,6 +287,12 @@ def _extract_date_range(text: str) -> tuple[datetime | None, datetime | None]:
 
 
 def _extract_route(text: str) -> str | None:
+    # Strip any recognisable date first: a hyphen/slash-separated date
+    # like "2026-07-10" would otherwise leave "07"/"10" as plausible-
+    # looking 2-digit route candidates that a plain digit-run-length check
+    # can't distinguish from a real route, and finditer would find one of
+    # those before ever reaching the text's actual route code.
+    text = _DATE_RE.sub(" ", text)
     for match in _ROUTE_RE.finditer(text):
         token = match.group(1)
         if token.isdigit() and len(token) > 3:
@@ -616,6 +622,7 @@ def parse_block(
             parsed.warnings.append("estate_extraction_failed")
 
     learned_district = False
+    ai_district = False
     if parsed.district is None and parsed.estate is not None and db is not None:
         # The estate resolved (via config/rules/estates.yaml or the regex
         # suffix fallback) but isn't in the curated YAML, so nothing knows
@@ -624,27 +631,49 @@ def parse_block(
         # before giving up. This is what makes the parser improve over
         # time without a YAML edit + redeploy for every unlisted estate.
         try:
-            from app.posters.corrections import lookup_correction
+            from app.posters.corrections import lookup_correction, record_correction
 
             learned = lookup_correction(db, key_type="estate_name", key_value=parsed.estate, field="district")
             if learned:
                 parsed.district = learned
                 learned_district = True
+            elif rule_engine is not None:
+                # Layer 3: neither the YAML nor a staff correction knows
+                # this estate - ask the AI provider which district it's in
+                # (a narrow, well-cached question, not the whole-record
+                # extraction below). The answer is immediately persisted
+                # as a learned correction too, so this estate never needs
+                # asking again regardless of whether AI stays configured.
+                from app.posters.ai_fallback import ai_infer_district_for_estate
+
+                district_names = [d.native_name for d in rule_engine.ruleset.districts]
+                ai_answer = ai_infer_district_for_estate(db, parsed.estate, district_names)
+                if ai_answer:
+                    parsed.district = ai_answer
+                    ai_district = True
+                    record_correction(
+                        db, key_type="estate_name", key_value=parsed.estate, field="district",
+                        value=ai_answer, corrected_by=None,
+                    )
         except Exception:
             parsed.warnings.append("learned_correction_lookup_failed")
 
     # `district` may have come directly from a district-text match
     # (district_confidence), from the estate that resolved first
-    # (estate_confidence), or from a staff-taught correction
-    # (learned_district) - all three are real, confident resolutions, not
-    # "not found". A learned correction is staff-verified ground truth, so
-    # it's reported at full confidence, not the estate-fallback's 0.6.
+    # (estate_confidence), from a staff-taught correction
+    # (learned_district), or from the AI fallback (ai_district) - all four
+    # are real, confident-enough resolutions, not "not found". A learned
+    # correction is staff-verified ground truth (full confidence); an AI
+    # answer is a reasonable guess, reported at the same moderate
+    # confidence RuleEngine already uses for its own AI-assisted matches.
     if learned_district:
         district_confidence = 1.0
+    elif ai_district:
+        district_confidence = 0.6
     effective_district_confidence = district_confidence if district_confidence is not None else estate_confidence
     parsed.field_confidence["district"] = effective_district_confidence if effective_district_confidence else 0.0
     parsed.field_sources["district"] = (
-        "learned" if learned_district else ("rule_engine" if effective_district_confidence else "none")
+        "learned" if learned_district else ("ai" if ai_district else ("rule_engine" if effective_district_confidence else "none"))
     )
     parsed.field_confidence["estate"] = estate_confidence if estate_confidence else (0.6 if parsed.estate else 0.0)
     parsed.field_sources["estate"] = "rule_engine" if estate_confidence else ("regex" if parsed.estate else "none")

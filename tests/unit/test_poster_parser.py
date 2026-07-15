@@ -401,6 +401,27 @@ def test_letter_prefixed_routes_are_recognised():
     assert _extract_route("通宵巴士 N281 服務") == "N281"
 
 
+@pytest.mark.parametrize(
+    "route",
+    [
+        "73H", "73X", "73A", "74K", "74X", "75K",
+        "272A", "272P", "271", "271B", "271S",
+        "40X", "40P", "287X", "87K", "89B", "89C",
+    ],
+)
+def test_every_reported_route_format_is_recognised(route):
+    """Every route format called out as missing: plain digits, digit+one
+    letter, and digit+two letters (e.g. a 3-digit route with a trailing
+    letter, like 271S) - not just the couple of examples originally
+    hardcoded against."""
+    assert _extract_route(f"{route} 巴士路線") == route
+
+
+def test_route_extraction_does_not_mistake_a_date_for_a_route():
+    assert _extract_route("20260710 通告") is None
+    assert _extract_route("2026-07-10 40X 富蝶邨") == "40X"
+
+
 def test_region_auto_filled_from_resolved_district(rule_engine):
     parsed = parse_block(
         "沙田 20260707-海報-好消息\nhttps://www.dropbox.com/scl/fi/region/poster.pdf?dl=0", rule_engine
@@ -563,3 +584,104 @@ def test_ai_fallback_unavailable_leaves_record_flagged_for_review(monkeypatch, d
     parsed = parse_block(block, rule_engine=None, db=db_session)
 
     assert parsed.needs_review is True
+
+
+class _StubClassifyProvider:
+    name = "stub"
+
+    def __init__(self, answer: str):
+        self._answer = answer
+        self.calls = 0
+
+    def classify(self, text, categories, context=""):
+        from app.ai.base import AIResponse
+
+        self.calls += 1
+        return AIResponse(text=self._answer)
+
+    def extract_fields(self, text, schema, context=""):
+        raise NotImplementedError
+
+    def complete(self, prompt, system=None):
+        raise NotImplementedError
+
+
+def test_district_ai_fallback_used_when_estate_resolves_but_district_does_not(monkeypatch, rule_engine, db_session):
+    """Layer 3 of district detection: an estate the parser can find (via
+    the regex suffix fallback) but that isn't in config/rules/estates.yaml
+    and has no learned correction yet - the AI provider is asked which
+    district it's in, and the answer is both used immediately and
+    remembered (app.posters.corrections) so the next record mentioning the
+    same estate resolves without asking AI again."""
+    stub = _StubClassifyProvider("大埔")
+    monkeypatch.setattr("app.posters.ai_fallback.get_guarded_ai_provider", lambda: stub)
+
+    block = "20260710-通告-40X-未曾聽過邨\nhttps://www.dropbox.com/scl/fi/district-ai/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine, db=db_session)
+
+    assert parsed.estate == "未曾聽過邨"
+    assert parsed.district == "大埔"
+    assert parsed.field_sources["district"] == "ai"
+    assert parsed.field_confidence["district"] == 0.6
+    assert stub.calls == 1
+
+    # Second record mentioning the same estate resolves from the learned
+    # correction the AI answer was written into - no second AI call.
+    block2 = "20260711-通告-41X-未曾聽過邨\nhttps://www.dropbox.com/scl/fi/district-ai-2/poster.pdf?dl=0"
+    parsed2 = parse_block(block2, rule_engine, db=db_session)
+    assert parsed2.district == "大埔"
+    assert parsed2.field_sources["district"] == "learned"
+    assert stub.calls == 1
+
+
+def test_district_ai_fallback_ignores_answer_outside_known_districts(monkeypatch, rule_engine, db_session):
+    stub = _StubClassifyProvider("Not A Real District")
+    monkeypatch.setattr("app.posters.ai_fallback.get_guarded_ai_provider", lambda: stub)
+
+    block = "20260710-通告-40X-完全未知邨\nhttps://www.dropbox.com/scl/fi/district-ai-bad/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine, db=db_session)
+
+    assert parsed.estate == "完全未知邨"
+    assert parsed.district is None
+
+
+# ---------------------------------------------------------------------------
+# Expanded estate knowledge base + additional suffix support (村/中心).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "estate,expected_district",
+    [
+        ("美林邨", "沙田"),
+        ("秦石邨", "沙田"),
+        ("乙明邨", "沙田"),
+        ("顯徑邨", "沙田"),
+        ("禾輋邨", "沙田"),
+        ("瀝源邨", "沙田"),
+        ("愉翠苑", "沙田"),
+        ("富蝶邨", "大埔"),
+        ("寶鄉邨", "大埔"),
+        ("廣福邨", "大埔"),
+        ("富亨邨", "大埔"),
+        ("太和邨", "大埔"),
+        ("頌雅苑", "大埔"),
+    ],
+)
+def test_named_estates_resolve_to_the_correct_district(rule_engine, estate, expected_district):
+    block = f"20260710-通告-40X-{estate}\nhttps://www.dropbox.com/scl/fi/{estate}/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine)
+    assert parsed.estate == estate
+    assert parsed.district == expected_district
+
+
+def test_estate_suffix_fallback_recognises_cun_and_centre():
+    """村 ("village") and 中心 ("centre") - suffixes not covered before,
+    alongside the existing 邨/苑/etc set."""
+    block = "20260710-通告-未列邨村\nhttps://www.dropbox.com/scl/fi/village/poster.pdf?dl=0"
+    parsed = parse_block(block, rule_engine=None)
+    assert parsed.estate == "未列邨村"
+
+    block2 = "20260710-通告-社區中心\nhttps://www.dropbox.com/scl/fi/centre/poster.pdf?dl=0"
+    parsed2 = parse_block(block2, rule_engine=None)
+    assert parsed2.estate == "社區中心"

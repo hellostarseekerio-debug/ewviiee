@@ -70,3 +70,43 @@ def get_ai_extracted_fields(db: Session, text: str) -> dict | None:
     db.merge(entry)
     db.flush()
     return result
+
+
+def ai_infer_district_for_estate(db: Session, estate_name: str, district_names: list[str]) -> str | None:
+    """Layer 3 of district detection (see app/posters/parser.py's
+    docstring): the estate resolved (via config/rules/estates.yaml or the
+    regex suffix fallback) but isn't in the curated YAML and no staff
+    correction has been recorded for it yet (app.posters.corrections) -
+    ask the AI provider which of the 18 HK districts it's in. Cached the
+    same way as get_ai_extracted_fields (keyed on the estate name itself,
+    not the whole block, since this is a much narrower question with a
+    stable, reusable answer independent of which record asked it)."""
+    if not district_names:
+        return None
+    text_hash = _text_hash(f"estate_district::{estate_name}")
+    cached = db.get(MetadataExtractionCache, text_hash)
+    if cached is not None:
+        return cached.result.get("district")
+
+    provider = get_guarded_ai_provider()
+    if provider is None:
+        return None
+
+    try:
+        response = provider.classify(
+            estate_name,
+            district_names,
+            context="Identify the Hong Kong district this housing estate is located in.",
+        )
+    except Exception as exc:
+        logger.warning("poster_ai_district_fallback_failed", estate=estate_name, error=str(exc))
+        return None
+
+    answer = (response.text or "").strip()
+    if answer not in district_names:
+        return None
+
+    entry = MetadataExtractionCache(text_hash=text_hash, result={"district": answer})
+    db.merge(entry)
+    db.flush()
+    return answer
