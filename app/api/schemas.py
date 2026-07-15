@@ -415,10 +415,34 @@ class PosterReparseResult(BaseModel):
     fields_filled: dict[str, str]
 
 
+class PosterReparseSkip(BaseModel):
+    """Why one candidate row was scanned but left unchanged - either the
+    parser produced nothing usable for its stored source_text (`parsed`
+    reason), or every reparseable field the parser returned was already
+    populated so there was nothing to fill in (`no_new_values`)."""
+
+    id: str
+    reason: str
+
+
 class PosterReparseResponse(BaseModel):
     scanned: int
     updated: int
+    unchanged: int
+    fields_updated: dict[str, int]
     results: list[PosterReparseResult]
+    skipped: list[PosterReparseSkip]
+
+
+class PosterDebugResponse(BaseModel):
+    """Temporary diagnostic endpoint (GET /api/posters/debug/{id}) for
+    tracing exactly which value a field holds at each stage of the
+    pipeline - not part of the stable API contract, remove once the
+    data-flow issue it was added to investigate is closed out."""
+
+    database: dict
+    api_response: dict
+    rendered_fields: dict
 
 
 # --- Folders: app/folders/service.py - generic, not poster-specific ------

@@ -36,6 +36,7 @@ from app.api.schemas import (
     PosterBulkMoveRequest,
     PosterBulkStatusRequest,
     PosterCreateRequest,
+    PosterDebugResponse,
     PosterImportRequest,
     PosterImportResponse,
     PosterImportResult,
@@ -44,6 +45,7 @@ from app.api.schemas import (
     PosterOut,
     PosterReparseResponse,
     PosterReparseResult,
+    PosterReparseSkip,
     PosterStatusChangeRequest,
     PosterUpdateRequest,
     PosterZipExportRequest,
@@ -51,7 +53,7 @@ from app.api.schemas import (
 )
 from app.core.config import get_settings
 from app.core.database import get_db, session_scope
-from app.core.logging_config import record_audit
+from app.core.logging_config import get_logger, record_audit
 from app.core.models import ExportJob, ExportJobStatus, Poster, PosterLinkHistory, PosterStatus, UserRole
 from app.core.security import role_rank
 from app.core.status_workflow import StatusTransitionError
@@ -68,6 +70,7 @@ from app.storage.download_service import build_default_download_service
 from app.storage.providers.dropbox import DropboxStorageProvider
 
 router = APIRouter(prefix="/api/posters", tags=["posters"])
+logger = get_logger(__name__)
 
 
 @router.post("/import", response_model=PosterImportResponse, status_code=status.HTTP_201_CREATED)
@@ -674,27 +677,40 @@ def reparse_posters(
         )
         .all()
     )
+    logger.info(
+        "poster_reparse.candidates_found",
+        count=len(candidates),
+        poster_ids=[p.id for p in candidates],
+    )
 
     results: list[PosterReparseResult] = []
+    skipped: list[PosterReparseSkip] = []
+    fields_updated: dict[str, int] = {}
     for poster in candidates:
         parsed = parse_block(poster.source_text, rule_engine, db=db)
         if parsed is None:
+            logger.info("poster_reparse.row_skipped", poster_id=poster.id, reason="parser_returned_none")
+            skipped.append(PosterReparseSkip(id=poster.id, reason="parser_returned_none"))
             continue
 
         fields_filled: dict[str, str] = {}
+        before_after: dict[str, dict[str, str | None]] = {}
         for field in _REPARSEABLE_FIELDS:
             current_value = getattr(poster, field)
             new_value = getattr(parsed, field)
             if not current_value and new_value:
                 setattr(poster, field, new_value)
                 fields_filled[field] = parsed.field_sources.get(field, "regex")
+                before_after[field] = {"before": current_value, "after": new_value}
 
         if parsed.politicians and not poster.politicians:
             poster.politicians = parsed.politicians
             fields_filled["politicians"] = "rule_engine"
+            before_after["politicians"] = {"before": None, "after": ",".join(parsed.politicians)}
         if parsed.document_date and not poster.document_date:
             poster.document_date = parsed.document_date
             fields_filled["document_date"] = "regex"
+            before_after["document_date"] = {"before": None, "after": str(parsed.document_date)}
 
         if fields_filled:
             # Merge, never overwrite, the confidence/source bookkeeping -
@@ -709,15 +725,99 @@ def reparse_posters(
             # review, and never leave a now-resolved one still flagged.
             if poster.needs_review and not parsed.needs_review:
                 poster.needs_review = False
+            for field in fields_filled:
+                fields_updated[field] = fields_updated.get(field, 0) + 1
+            logger.info(
+                "poster_reparse.row_updated",
+                poster_id=poster.id,
+                fields_filled=fields_filled,
+                before_after=before_after,
+            )
             results.append(PosterReparseResult(id=poster.id, fields_filled=fields_filled))
+        else:
+            # The parser ran successfully but produced nothing that the row
+            # was actually missing - e.g. it already had every reparseable
+            # field, or the parser's answer for each still-blank field was
+            # itself blank (source_text lacks that signal).
+            reason = "no_new_values"
+            logger.info("poster_reparse.row_skipped", poster_id=poster.id, reason=reason)
+            skipped.append(PosterReparseSkip(id=poster.id, reason=reason))
 
     db.commit()
+    logger.info(
+        "poster_reparse.complete",
+        scanned=len(candidates),
+        updated=len(results),
+        unchanged=len(skipped),
+        fields_updated=fields_updated,
+    )
     record_audit(
         actor=current_user.username,
         action="poster_reparse",
-        detail={"scanned": len(candidates), "updated": len(results)},
+        detail={"scanned": len(candidates), "updated": len(results), "fields_updated": fields_updated},
     )
-    return PosterReparseResponse(scanned=len(candidates), updated=len(results), results=results)
+    return PosterReparseResponse(
+        scanned=len(candidates),
+        updated=len(results),
+        unchanged=len(skipped),
+        fields_updated=fields_updated,
+        results=results,
+        skipped=skipped,
+    )
+
+
+# Fields the frontend table (frontend/app/(app)/posters/page.tsx) actually
+# reads for its row display, and the literal fallback string it substitutes
+# when that field is falsy - kept in sync by hand since this is a temporary
+# diagnostic route, not a real API contract.
+_RENDERED_FIELD_FALLBACKS = {
+    "poster_title": "(untitled)",
+    "poster_type": None,
+    "district": "—",
+    "estate": "—",
+    "route_number": "—",
+    "document_date": "—",
+    "status": None,
+    "dropbox_url": None,
+}
+
+
+@router.get("/debug/{poster_id}", response_model=PosterDebugResponse)
+def debug_poster(poster_id: str, db: Session = Depends(get_db), current_user=Depends(require_role(UserRole.EDITOR))):
+    """TEMPORARY diagnostic route added to trace a single poster's value
+    through every pipeline stage - raw DB row, serialized API response, and
+    the fields/fallbacks the frontend table actually renders - to find the
+    first point where a value goes null/blank. Remove once the data-flow
+    investigation it supports is closed out; not part of the stable API."""
+    poster = db.get(Poster, poster_id)
+    if poster is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Poster record not found")
+
+    database_values = {
+        column.name: getattr(poster, column.name) for column in Poster.__table__.columns
+    }
+    api_response = jsonable_encoder(PosterOut.model_validate(poster))
+
+    rendered_fields = {}
+    for field, fallback in _RENDERED_FIELD_FALLBACKS.items():
+        raw = api_response.get(field)
+        rendered_fields[field] = {
+            "raw_value": raw,
+            "displayed_as": raw if raw else fallback,
+        }
+    # The table's district/estate column joins both with " · " and falls
+    # back to "—" only when *both* are empty - mirror that combined view too.
+    district, estate = api_response.get("district"), api_response.get("estate")
+    rendered_fields["district_estate_combined"] = {
+        "raw_value": [district, estate],
+        "displayed_as": " · ".join(v for v in (district, estate) if v) or "—",
+    }
+
+    return PosterDebugResponse(
+        database=jsonable_encoder(database_values),
+        api_response=api_response,
+        rendered_fields=rendered_fields,
+    )
 
 
 @router.post("/bulk-status", status_code=status.HTTP_200_OK)

@@ -2,6 +2,8 @@
 duplicate detection, Dropbox link verification, and link-change history."""
 from __future__ import annotations
 
+from datetime import datetime
+
 import httpx
 
 
@@ -480,3 +482,116 @@ def test_reparse_never_overwrites_an_existing_value(bootstrap_admin):
     assert after["poster_title"] == "Manually corrected title"
     assert after["district"] == "Manually Set District"
     assert after["estate"] == "愉翠苑"  # the genuinely-blank field is still filled in
+
+
+def test_reparse_reports_field_counts_and_skip_reasons(bootstrap_admin):
+    """The summary block must total up which fields got filled in across
+    the whole run, and any candidate that didn't end up changed must show
+    up in `skipped` with a reason - never just silently vanish."""
+    from app.core.database import get_session_factory
+    from app.core.models import Poster
+
+    client, headers = bootstrap_admin
+
+    Session = get_session_factory()
+    db = Session()
+    # Fully populated already - a reparse candidate only because of
+    # needs_review, but the parser will find nothing new to fill in.
+    fully_populated = Poster(
+        poster_title="Already complete",
+        district="沙田",
+        region="新界",
+        estate="愉翠苑",
+        route_number="40X",
+        poster_type="notice",
+        document_date=datetime(2026, 7, 10),
+        dropbox_url="https://www.dropbox.com/scl/fo/reparse-fully-populated",
+        source_text="20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/reparse-fully-populated",
+        source="paste_import",
+        needs_review=True,
+    )
+    # Genuinely missing fields the parser can fill in.
+    stale = Poster(
+        district=None,
+        estate=None,
+        route_number=None,
+        poster_type=None,
+        dropbox_url="https://www.dropbox.com/scl/fo/reparse-count-stale",
+        source_text="20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/reparse-count-stale",
+        source="paste_import",
+        needs_review=True,
+    )
+    db.add_all([fully_populated, stale])
+    db.commit()
+    fully_populated_id, stale_id = fully_populated.id, stale.id
+    db.close()
+
+    response = client.post("/api/posters/reparse", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["scanned"] >= 2
+    assert body["updated"] >= 1
+    assert body["unchanged"] >= 1
+    assert body["fields_updated"]["district"] >= 1
+    assert body["fields_updated"]["estate"] >= 1
+    assert body["fields_updated"]["route_number"] >= 1
+
+    skipped_ids = {s["id"]: s["reason"] for s in body["skipped"]}
+    assert skipped_ids[fully_populated_id] == "no_new_values"
+    assert stale_id not in skipped_ids
+
+
+def test_debug_endpoint_shows_database_api_and_rendered_values(bootstrap_admin):
+    client, headers = bootstrap_admin
+
+    imported = client.post(
+        "/api/posters/import",
+        json={"text": "20260710-通告-40X-愉翠苑\nhttps://www.dropbox.com/scl/fo/debug-endpoint"},
+        headers=headers,
+    ).json()["results"][0]["id"]
+
+    response = client.get(f"/api/posters/debug/{imported}", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["database"]["id"] == imported
+    assert body["database"]["district"] == "沙田"
+    assert body["api_response"]["district"] == "沙田"
+    assert body["rendered_fields"]["district"]["raw_value"] == "沙田"
+    assert body["rendered_fields"]["district"]["displayed_as"] == "沙田"
+    assert body["rendered_fields"]["district_estate_combined"]["displayed_as"] == "沙田 · 愉翠苑"
+
+
+def test_debug_endpoint_shows_fallback_placeholders_for_blank_fields(bootstrap_admin):
+    from app.core.database import get_session_factory
+    from app.core.models import Poster
+
+    client, headers = bootstrap_admin
+
+    Session = get_session_factory()
+    db = Session()
+    row = Poster(
+        poster_title=None,
+        district=None,
+        estate=None,
+        route_number=None,
+        poster_type=None,
+        dropbox_url="https://www.dropbox.com/scl/fo/debug-blank-fields",
+        source="manual",
+        needs_review=True,
+    )
+    db.add(row)
+    db.commit()
+    row_id = row.id
+    db.close()
+
+    response = client.get(f"/api/posters/debug/{row_id}", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["database"]["district"] is None
+    assert body["rendered_fields"]["district"]["raw_value"] is None
+    assert body["rendered_fields"]["district"]["displayed_as"] == "—"
+    assert body["rendered_fields"]["poster_title"]["displayed_as"] == "(untitled)"
+    assert body["rendered_fields"]["district_estate_combined"]["displayed_as"] == "—"
