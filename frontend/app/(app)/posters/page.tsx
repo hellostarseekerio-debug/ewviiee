@@ -64,6 +64,7 @@ import { PosterStatusBadge } from "@/components/documents/status-badge";
 import { FolderTree, posterDragProps } from "@/components/folders/folder-tree";
 import { FolderBreadcrumbs } from "@/components/folders/breadcrumbs";
 import { FolderPickerDialog } from "@/components/folders/folder-picker-dialog";
+import { PromptDialog } from "@/components/ui/prompt-dialog";
 import { ConfidenceBadge, ReviewPanel } from "@/components/posters/review-panel";
 
 // Mirrors app/posters/status.py's POSTER_STATUS_TRANSITIONS - purely to
@@ -259,6 +260,7 @@ export default function PosterArchivePage() {
   const [reviewTarget, setReviewTarget] = useState<PosterOut | null>(null);
   const [exporting, setExporting] = useState(false);
   const [reparsing, setReparsing] = useState(false);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTree = useCallback(async () => {
@@ -529,20 +531,26 @@ export default function PosterArchivePage() {
               variant="ghost"
               size="sm"
               className="mt-1 justify-start text-muted-foreground"
-              onClick={async () => {
-                const name = window.prompt("New top-level folder name");
-                if (!name || !name.trim()) return;
-                try {
-                  await foldersApi.create({ name: name.trim(), parent_id: null });
-                  loadTree();
-                } catch (err) {
-                  toast.error(err instanceof ApiError ? err.message : "Create failed");
-                }
-              }}
+              onClick={() => setNewFolderOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" /> New folder
             </Button>
           )}
+          <PromptDialog
+            open={newFolderOpen}
+            onOpenChange={setNewFolderOpen}
+            title="New top-level folder"
+            placeholder="Folder name"
+            submitLabel="Create"
+            onSubmit={async (name) => {
+              try {
+                await foldersApi.create({ name, parent_id: null });
+                loadTree();
+              } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : "Create failed");
+              }
+            }}
+          />
         </div>
       </aside>
 

@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog, PromptDialog } from "@/components/ui/prompt-dialog";
 import { cn } from "@/lib/utils";
 
 // Native HTML5 drag & drop (no new dependency): a folder row is draggable
@@ -132,6 +133,9 @@ function FolderNode({
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(depth < 2);
   const [dragOver, setDragOver] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [createSubfolderOpen, setCreateSubfolderOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const hasChildren = node.children.length > 0;
 
   async function handleDrop(e: React.DragEvent) {
@@ -160,22 +164,19 @@ function FolderNode({
     }
   }
 
-  async function handleRename() {
-    const name = window.prompt("Rename folder", node.name);
-    if (!name || name.trim() === node.name) return;
+  async function handleRename(name: string) {
+    if (name === node.name) return;
     try {
-      await foldersApi.rename(node.id, name.trim());
+      await foldersApi.rename(node.id, name);
       onChanged();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Rename failed");
     }
   }
 
-  async function handleCreateSubfolder() {
-    const name = window.prompt("New subfolder name");
-    if (!name || !name.trim()) return;
+  async function handleCreateSubfolder(name: string) {
     try {
-      await foldersApi.create({ name: name.trim(), parent_id: node.id });
+      await foldersApi.create({ name, parent_id: node.id });
       setExpanded(true);
       onChanged();
     } catch (err) {
@@ -183,14 +184,11 @@ function FolderNode({
     }
   }
 
+  const deleteIsRecursive = node.total_items > 0 || node.children.length > 0;
+
   async function handleDelete() {
-    const recursive = node.total_items > 0 || node.children.length > 0;
-    const message = recursive
-      ? `"${node.name}" contains ${node.total_items} record(s) and/or subfolders. Delete it anyway? Records are unfiled, never deleted.`
-      : `Delete empty folder "${node.name}"?`;
-    if (!window.confirm(message)) return;
     try {
-      await foldersApi.remove(node.id, { recursive });
+      await foldersApi.remove(node.id, { recursive: deleteIsRecursive });
       if (selectedFolderId === node.id) onSelect(null);
       onChanged();
     } catch (err) {
@@ -244,14 +242,14 @@ function FolderNode({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCreateSubfolder}>
+              <DropdownMenuItem onClick={() => setCreateSubfolderOpen(true)}>
                 <FolderPlus className="h-4 w-4" /> New subfolder
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleRename}>
+              <DropdownMenuItem onClick={() => setRenameOpen(true)}>
                 <Pencil className="h-4 w-4" /> Rename
               </DropdownMenuItem>
               {hasRole(user, "admin") && (
-                <DropdownMenuItem destructive onClick={handleDelete}>
+                <DropdownMenuItem destructive onClick={() => setDeleteOpen(true)}>
                   <Trash2 className="h-4 w-4" /> Delete
                 </DropdownMenuItem>
               )}
@@ -266,6 +264,35 @@ function FolderNode({
           ))}
         </div>
       )}
+      <PromptDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        title="Rename folder"
+        defaultValue={node.name}
+        submitLabel="Rename"
+        onSubmit={handleRename}
+      />
+      <PromptDialog
+        open={createSubfolderOpen}
+        onOpenChange={setCreateSubfolderOpen}
+        title="New subfolder"
+        placeholder="Subfolder name"
+        submitLabel="Create"
+        onSubmit={handleCreateSubfolder}
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={deleteIsRecursive ? `Delete "${node.name}" and its contents?` : `Delete empty folder "${node.name}"?`}
+        description={
+          deleteIsRecursive
+            ? `"${node.name}" contains ${node.total_items} record(s) and/or subfolders. Records are unfiled, never deleted.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

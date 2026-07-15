@@ -72,12 +72,72 @@ def test_duplicate_sibling_name_is_409(bootstrap_admin):
     assert response.status_code == 409
 
 
+def test_create_folder_rejects_blank_name(bootstrap_admin):
+    client, headers = bootstrap_admin
+    response = client.post("/api/folders", json={"name": "   "}, headers=headers)
+    assert response.status_code == 409
+
+
+def test_folder_persists_after_reload(bootstrap_admin):
+    """Simulates the app being reloaded: a folder created in one request
+    must still be there when looked up via a completely separate request/
+    DB session afterwards, not just readable from the same response that
+    created it."""
+    from app.core.database import get_session_factory
+    from app.core.models import Folder
+
+    client, headers = bootstrap_admin
+    folder = _create_folder(client, headers, "Survives Reload")
+
+    Session = get_session_factory()
+    db = Session()
+    row = db.get(Folder, folder["id"])
+    assert row is not None
+    assert row.name == "Survives Reload"
+    db.close()
+
+    response = client.get(f"/api/folders/{folder['id']}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["folder"]["name"] == "Survives Reload"
+
+
 def test_rename_folder(bootstrap_admin):
     client, headers = bootstrap_admin
     folder = _create_folder(client, headers, "Old")
     response = client.patch(f"/api/folders/{folder['id']}", json={"name": "New"}, headers=headers)
     assert response.status_code == 200
     assert response.json()["name"] == "New"
+
+
+def test_rename_folder_rejects_blank_name(bootstrap_admin):
+    client, headers = bootstrap_admin
+    folder = _create_folder(client, headers, "Old")
+    response = client.patch(f"/api/folders/{folder['id']}", json={"name": "   "}, headers=headers)
+    assert response.status_code == 409
+
+
+def test_rename_folder_rejects_conflicting_sibling_name(bootstrap_admin):
+    client, headers = bootstrap_admin
+    _create_folder(client, headers, "Existing")
+    folder = _create_folder(client, headers, "Renameable")
+    response = client.patch(f"/api/folders/{folder['id']}", json={"name": "Existing"}, headers=headers)
+    assert response.status_code == 409
+
+
+def test_deeply_nested_folder_chain_via_api(bootstrap_admin):
+    client, headers = bootstrap_admin
+    root = _create_folder(client, headers, "Root")
+    a = _create_folder(client, headers, "A", parent_id=root["id"])
+    b = _create_folder(client, headers, "B", parent_id=a["id"])
+    c = _create_folder(client, headers, "C", parent_id=b["id"])
+    assert c["depth"] == 3
+    assert c["path"] == f"{root['id']}/{a['id']}/{b['id']}/{c['id']}"
+
+    tree = client.get("/api/folders/tree", headers=headers).json()
+    assert tree[0]["name"] == "Root"
+    assert tree[0]["children"][0]["name"] == "A"
+    assert tree[0]["children"][0]["children"][0]["name"] == "B"
+    assert tree[0]["children"][0]["children"][0]["children"][0]["name"] == "C"
 
 
 def test_rename_requires_editor(bootstrap_admin):
