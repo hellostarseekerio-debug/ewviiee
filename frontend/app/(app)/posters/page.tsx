@@ -64,7 +64,7 @@ import { PosterStatusBadge } from "@/components/documents/status-badge";
 import { FolderTree, posterDragProps } from "@/components/folders/folder-tree";
 import { FolderBreadcrumbs } from "@/components/folders/breadcrumbs";
 import { FolderPickerDialog } from "@/components/folders/folder-picker-dialog";
-import { PromptDialog } from "@/components/ui/prompt-dialog";
+import { ConfirmDialog, PromptDialog } from "@/components/ui/prompt-dialog";
 import { ConfidenceBadge, ReviewPanel } from "@/components/posters/review-panel";
 
 // Mirrors app/posters/status.py's POSTER_STATUS_TRANSITIONS - purely to
@@ -261,6 +261,8 @@ export default function PosterArchivePage() {
   const [exporting, setExporting] = useState(false);
   const [reparsing, setReparsing] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadTree = useCallback(async () => {
@@ -380,7 +382,6 @@ export default function PosterArchivePage() {
 
   async function handleBulkDelete() {
     if (selected.size === 0) return;
-    if (!confirm(`Delete ${selected.size} selected record(s)? This cannot be undone.`)) return;
     try {
       await postersApi.bulkDelete(Array.from(selected));
       toast.success(`Deleted ${selected.size} record(s)`);
@@ -402,7 +403,6 @@ export default function PosterArchivePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this record?")) return;
     try {
       await postersApi.remove(id);
       toast.success("Deleted");
@@ -706,7 +706,7 @@ export default function PosterArchivePage() {
                   </Button>
                 )}
                 {hasRole(user, "admin") && (
-                  <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Button variant="destructive" size="sm" onClick={() => setBulkDeleteConfirmOpen(true)}>
                     <Trash2 className="h-4 w-4" /> Delete selected
                   </Button>
                 )}
@@ -800,12 +800,24 @@ export default function PosterArchivePage() {
                       <TableCell>
                         <div className="flex gap-1">
                           {hasRole(user, "editor") && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Edit ${p.poster_title || "record"}`}
+                              onClick={() => setEditTarget(p)}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
                           {hasRole(user, "admin") && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Delete ${p.poster_title || "record"}`}
+                              onClick={() => setDeleteTarget(p.id)}
+                            >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           )}
@@ -865,12 +877,24 @@ export default function PosterArchivePage() {
                     <DropboxLinkCell poster={p} onChanged={load} />
                     <div className="flex gap-1">
                       {hasRole(user, "editor") && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditTarget(p)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Edit ${p.poster_title || "record"}`}
+                          onClick={() => setEditTarget(p)}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
                       {hasRole(user, "admin") && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(p.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Delete ${p.poster_title || "record"}`}
+                          onClick={() => setDeleteTarget(p.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       )}
@@ -940,6 +964,23 @@ export default function PosterArchivePage() {
           poster={reviewTarget}
           onOpenChange={(open) => !open && setReviewTarget(null)}
           onSaved={refreshAll}
+        />
+        <ConfirmDialog
+          open={bulkDeleteConfirmOpen}
+          onOpenChange={setBulkDeleteConfirmOpen}
+          title={`Delete ${selected.size} selected record(s)?`}
+          description="This cannot be undone."
+          confirmLabel="Delete"
+          destructive
+          onConfirm={handleBulkDelete}
+        />
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          title="Delete this record?"
+          confirmLabel="Delete"
+          destructive
+          onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
         />
       </div>
     </div>

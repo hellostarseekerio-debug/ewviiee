@@ -10,12 +10,17 @@ is recorded both in `Application.step_history` and the global audit log.
 Read access (Viewer+) is intentionally broader than write access
 (Editor+), matching the Poster Archive's existing role split.
 """
-from __future__ import annotations
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+# Deliberately no `from __future__ import annotations` here: this module
+# mixes `@limiter.limit(...)` (slowapi) with body-model params, and
+# slowapi's wrapper doesn't preserve this module's globals for resolving
+# string annotations - FastAPI then fails at startup trying to resolve an
+# unresolved ForwardRef for the body model's type. See posters.py's
+# top-of-file comment for the original instance of this; same fix here.
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
+from app.api.rate_limit import limiter
 from app.api.schemas import (
     ApplicationAttachPosterRequest,
     ApplicationListResponse,
@@ -29,6 +34,7 @@ from app.applications.service import (
     list_applications,
 )
 from app.applications.steps import StepTransitionError
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging_config import record_audit
 from app.core.models import ApplicationStatus, Poster, UserRole
@@ -37,7 +43,9 @@ router = APIRouter(prefix="/api/applications", tags=["applications"])
 
 
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def start_application(
+    request: Request,
     db: Session = Depends(get_db),
     user=Depends(require_role(UserRole.EDITOR)),
 ):
@@ -82,7 +90,9 @@ def get_application_detail(application_id: str, db: Session = Depends(get_db), _
 
 
 @router.post("/{application_id}/step1/attach-poster", response_model=ApplicationOut)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def attach_poster_to_application(
+    request: Request,
     application_id: str,
     payload: ApplicationAttachPosterRequest,
     db: Session = Depends(get_db),

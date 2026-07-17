@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { ApprovalBadge, StatusBadge } from "@/components/documents/status-badge";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
+import { ConfirmDialog } from "@/components/ui/prompt-dialog";
 
 const PAGE_SIZE = 20;
 
@@ -61,8 +62,9 @@ export default function DocumentsPage() {
     load();
   }, [load]);
 
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
   async function handleDelete(id: string) {
-    if (!confirm("Delete this document? It can be recovered by an administrator if needed.")) return;
     try {
       await documentsApi.remove(id);
       toast.success("Document deleted");
@@ -154,7 +156,13 @@ export default function DocumentsPage() {
                     </TableCell>
                     <TableCell>
                       {hasRole(user, "admin") && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(doc.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Delete ${doc.filename}`}
+                          onClick={() => setDeleteTarget(doc.id)}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       )}
@@ -197,6 +205,15 @@ export default function DocumentsPage() {
           <UploadDropzone onUploaded={load} />
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete this document?"
+        description="It can be recovered by an administrator if needed."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+      />
     </div>
   );
 }

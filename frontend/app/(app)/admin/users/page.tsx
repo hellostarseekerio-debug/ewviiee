@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/prompt-dialog";
 
 const ROLES: UserRole[] = ["viewer", "reviewer", "editor", "admin"];
 
@@ -41,6 +42,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserOut | null>(null);
   const [resetTarget, setResetTarget] = useState<UserOut | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<UserOut | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +60,6 @@ export default function UsersPage() {
   }, [load]);
 
   async function handleDeactivate(username: string) {
-    if (!confirm(`Deactivate ${username}? They will no longer be able to log in.`)) return;
     try {
       await authApi.deactivateUser(username);
       toast.success(`${username} deactivated`);
@@ -141,7 +142,7 @@ export default function UsersPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${u.username}`}>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -153,7 +154,7 @@ export default function UsersPage() {
                             <KeyRound className="h-4 w-4" /> Reset password
                           </DropdownMenuItem>
                           {u.username !== currentUser?.username && (
-                            <DropdownMenuItem destructive onClick={() => handleDeactivate(u.username)}>
+                            <DropdownMenuItem destructive onClick={() => setDeactivateTarget(u)}>
                               <ShieldOff className="h-4 w-4" /> Deactivate
                             </DropdownMenuItem>
                           )}
@@ -181,6 +182,15 @@ export default function UsersPage() {
       {resetTarget && (
         <ResetPasswordDialog user={resetTarget} onOpenChange={(open) => !open && setResetTarget(null)} />
       )}
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+        title={`Deactivate ${deactivateTarget?.username ?? ""}?`}
+        description="They will no longer be able to log in."
+        confirmLabel="Deactivate"
+        destructive
+        onConfirm={() => deactivateTarget && handleDeactivate(deactivateTarget.username)}
+      />
     </div>
   );
 }

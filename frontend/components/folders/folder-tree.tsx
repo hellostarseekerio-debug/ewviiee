@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/prompt-dialog";
-import { cn } from "@/lib/utils";
+import { cn, folderIndentPx } from "@/lib/utils";
 
 // Native HTML5 drag & drop (no new dependency): a folder row is draggable
 // (moving that folder elsewhere in the tree) and a drop target (moving
@@ -216,7 +216,7 @@ function FolderNode({
           selectedFolderId === node.id ? "bg-sidebar-accent text-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60",
           dragOver && "ring-2 ring-primary"
         )}
-        style={{ paddingLeft: 8 + depth * 16 }}
+        style={{ paddingLeft: folderIndentPx(depth) }}
       >
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -237,7 +237,12 @@ function FolderNode({
         {hasRole(user, "editor") && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100"
+                aria-label={`Actions for folder "${node.name}"`}
+              >
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>

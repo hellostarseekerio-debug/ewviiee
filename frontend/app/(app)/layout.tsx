@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { SidebarNav } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { CommandPaletteProvider } from "@/lib/command-palette-context";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,17 +28,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
-        <SidebarNav />
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
-        </main>
+    <CommandPaletteProvider>
+      <div className="flex h-screen w-full overflow-hidden">
+        <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
+          <SidebarNav />
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto scrollbar-thin">
+            <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          </main>
+        </div>
+        <CommandPalette />
       </div>
-      <CommandPalette />
-    </div>
+    </CommandPaletteProvider>
   );
 }

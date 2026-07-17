@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ApprovalBadge, StatusBadge } from "@/components/documents/status-badge";
+import { ConfirmDialog } from "@/components/ui/prompt-dialog";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -34,6 +35,7 @@ export default function DocumentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,7 +72,6 @@ export default function DocumentDetailPage() {
   }
 
   async function handleRollback(versionId: string) {
-    if (!confirm("Restore this version? The document will return for review.")) return;
     setBusy(true);
     try {
       const updated = await documentsApi.rollback(params.id, versionId);
@@ -118,7 +119,7 @@ export default function DocumentDetailPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" aria-label="Back" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -209,7 +210,7 @@ export default function DocumentDetailPage() {
                       </p>
                     </div>
                     {hasRole(user, "editor") && (
-                      <Button variant="outline" size="sm" disabled={busy} onClick={() => handleRollback(version.id)}>
+                      <Button variant="outline" size="sm" disabled={busy} onClick={() => setRollbackTarget(version.id)}>
                         <RotateCcw className="h-3.5 w-3.5" /> Restore
                       </Button>
                     )}
@@ -220,6 +221,14 @@ export default function DocumentDetailPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={rollbackTarget !== null}
+        onOpenChange={(open) => !open && setRollbackTarget(null)}
+        title="Restore this version?"
+        description="The document will return for review."
+        confirmLabel="Restore"
+        onConfirm={() => rollbackTarget && handleRollback(rollbackTarget)}
+      />
     </div>
   );
 }

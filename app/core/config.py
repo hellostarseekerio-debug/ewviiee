@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     api_reload: bool = False
     rate_limit_login: str = "5/minute"
     rate_limit_default: str = "120/minute"
+    # For endpoints that do real per-request work proportional to archive
+    # size (ZIP export building/streaming a file per record, the O(n^2)
+    # duplicate-title scan) rather than a single indexed query - a much
+    # tighter ceiling than rate_limit_default, since even one legitimate
+    # user rarely needs to kick these off more than a few times a minute.
+    rate_limit_expensive: str = "10/minute"
 
     # Set to true only when a reverse proxy (nginx/Caddy) sits directly in
     # front of this app and is the sole way to reach it - otherwise the

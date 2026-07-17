@@ -17,6 +17,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import { useCommandPalette } from "@/lib/command-palette-context";
 import { useLanguage, localeLabels, type Locale } from "@/lib/i18n/context";
 import { SidebarNav } from "./sidebar";
 
@@ -28,6 +29,7 @@ export function Topbar() {
   const { locale, setLocale, t } = useLanguage();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { setOpen: setCommandPaletteOpen } = useCommandPalette();
 
   const initials = user?.full_name
     ? user.full_name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -38,7 +40,7 @@ export function Topbar() {
       <div className="flex items-center gap-2">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="lg:hidden">
+            <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation menu">
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
@@ -50,7 +52,7 @@ export function Topbar() {
           variant="outline"
           size="sm"
           className="hidden gap-2 text-muted-foreground sm:flex"
-          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+          onClick={() => setCommandPaletteOpen(true)}
         >
           <Search className="h-3.5 w-3.5" />
           {t("topbar.searchPlaceholder")}

@@ -403,12 +403,20 @@ def export_posters_csv(
     )
 
 
-def _resolve_export_posters(db: Session, payload: PosterZipExportRequest) -> list[Poster]:
+def _resolve_export_posters(db: Session, payload: PosterZipExportRequest, *, row_cap: int) -> list[Poster]:
     """Selection precedence: explicit `ids` (selected files) > `folder_id`
     (current folder, optionally recursive) > the plain filter fields
-    (search results) > no filters at all (the entire archive)."""
+    (search results) > no filters at all (the entire archive).
+
+    `row_cap` bounds the query itself (one more than the export's own
+    file limit, so the caller can still tell "over the limit" apart from
+    "exactly at it") rather than fetching every matching row into memory
+    just to immediately reject the request for having too many - a filter
+    broad enough to match the whole archive would otherwise pull the
+    entire `posters` table before the size check in export_posters_zip
+    ever runs."""
     if payload.ids:
-        return db.query(Poster).filter(Poster.id.in_(payload.ids)).all()
+        return db.query(Poster).filter(Poster.id.in_(payload.ids)).limit(row_cap).all()
 
     query = db.query(Poster)
     if payload.q:
@@ -427,7 +435,7 @@ def _resolve_export_posters(db: Session, payload: PosterZipExportRequest) -> lis
         query, payload.district, payload.poster_type, payload.date_from, payload.date_to, payload.has_dropbox,
         db=db, folder_id=payload.folder_id, recursive=payload.recursive,
     )
-    return query.order_by(Poster.created_at.desc()).all()
+    return query.order_by(Poster.created_at.desc()).limit(row_cap).all()
 
 
 def _posters_to_exportable(posters: list[Poster]) -> list[ExportableRecord]:
@@ -491,7 +499,9 @@ def _run_zip_export_job(job_id: str, poster_ids: list[str]) -> None:
 
 
 @router.post("/export/zip")
+@limiter.limit(lambda: get_settings().rate_limit_expensive)
 def export_posters_zip(
+    request: Request,
     payload: PosterZipExportRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -507,7 +517,7 @@ def export_posters_zip(
     docs/ARCHITECTURE_REVIEW_2026-07.md's risk #1 on this exact hazard."""
     settings = get_settings()
     try:
-        posters = _resolve_export_posters(db, payload)
+        posters = _resolve_export_posters(db, payload, row_cap=settings.zip_export_max_files + 1)
     except FolderNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
@@ -557,7 +567,9 @@ def export_posters_zip(
 
 
 @router.post("/bulk-delete", status_code=status.HTTP_200_OK)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def bulk_delete_posters(
+    request: Request,
     payload: PosterBulkDeleteRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
@@ -572,7 +584,9 @@ def bulk_delete_posters(
 
 
 @router.post("/bulk-move", status_code=status.HTTP_200_OK)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def bulk_move_posters(
+    request: Request,
     payload: PosterBulkMoveRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.EDITOR)),
@@ -599,7 +613,9 @@ def bulk_move_posters(
 
 
 @router.post("/bulk-update", status_code=status.HTTP_200_OK)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def bulk_update_posters(
+    request: Request,
     payload: PosterBulkFieldUpdateRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.EDITOR)),
@@ -643,7 +659,9 @@ _REPARSEABLE_FIELDS = ["district", "region", "estate", "poster_type", "route_num
 
 
 @router.post("/reparse", response_model=PosterReparseResponse)
+@limiter.limit(lambda: get_settings().rate_limit_expensive)
 def reparse_posters(
+    request: Request,
     db: Session = Depends(get_db),
     rule_engine: RuleEngine = Depends(get_rule_engine),
     current_user=Depends(require_role(UserRole.EDITOR)),
@@ -821,7 +839,9 @@ def debug_poster(poster_id: str, db: Session = Depends(get_db), current_user=Dep
 
 
 @router.post("/bulk-status", status_code=status.HTTP_200_OK)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def bulk_change_poster_status(
+    request: Request,
     payload: PosterBulkStatusRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.REVIEWER)),
@@ -865,7 +885,8 @@ def bulk_change_poster_status(
 
 
 @router.get("/duplicates", response_model=list[DuplicateGroupOut])
-def list_duplicate_posters(db: Session = Depends(get_db), _=Depends(get_current_user)):
+@limiter.limit(lambda: get_settings().rate_limit_expensive)
+def list_duplicate_posters(request: Request, db: Session = Depends(get_db), _=Depends(get_current_user)):
     """Surfaces exact-Dropbox-link and similar-title duplicate groups (see
     app/posters/duplicates.py) for manual merge review - never merges
     automatically, since deciding which record is authoritative is a
@@ -875,7 +896,9 @@ def list_duplicate_posters(db: Session = Depends(get_db), _=Depends(get_current_
 
 
 @router.post("/{poster_id}/verify-link", response_model=LinkVerifyResultOut)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def verify_poster_link(
+    request: Request,
     poster_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.EDITOR)),

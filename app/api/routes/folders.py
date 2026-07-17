@@ -9,12 +9,17 @@ create-edit convention elsewhere in the API); delete requires Admin+
 (matches every other hard-delete in this API). Every mutating action is
 audit-logged.
 """
-from __future__ import annotations
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+# Deliberately no `from __future__ import annotations` here: this module
+# mixes `@limiter.limit(...)` (slowapi) with body-model params, and
+# slowapi's wrapper doesn't preserve this module's globals for resolving
+# string annotations - FastAPI then fails at startup trying to resolve an
+# unresolved ForwardRef for the body model's type. See posters.py's
+# top-of-file comment for the original instance of this; same fix here.
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
+from app.api.rate_limit import limiter
 from app.api.schemas import (
     FolderCreateRequest,
     FolderDetailOut,
@@ -24,6 +29,7 @@ from app.api.schemas import (
     FolderStatsOut,
     FolderTreeNodeOut,
 )
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging_config import record_audit
 from app.core.models import UserRole
@@ -74,7 +80,9 @@ def list_folder_children(
 
 
 @router.post("", response_model=FolderOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def create_new_folder(
+    request: Request,
     payload: FolderCreateRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.EDITOR)),
@@ -110,7 +118,9 @@ def get_folder_detail(
 
 
 @router.patch("/{folder_id}", response_model=FolderOut)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def rename_existing_folder(
+    request: Request,
     folder_id: str,
     payload: FolderRenameRequest,
     db: Session = Depends(get_db),
@@ -127,7 +137,9 @@ def rename_existing_folder(
 
 
 @router.post("/{folder_id}/move", response_model=FolderOut)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def move_existing_folder(
+    request: Request,
     folder_id: str,
     payload: FolderMoveRequest,
     db: Session = Depends(get_db),
@@ -147,7 +159,9 @@ def move_existing_folder(
 
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(lambda: get_settings().rate_limit_default)
 def delete_existing_folder(
+    request: Request,
     folder_id: str,
     resource_type: str = Query(default="poster"),
     recursive: bool = Query(default=False),

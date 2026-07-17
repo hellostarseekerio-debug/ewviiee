@@ -43,6 +43,12 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Guards against a race where a slower, earlier keystroke's request
+  // resolves after a newer one and overwrites fresher results - every
+  // runSearch() call stamps the request it fires, and any response whose
+  // stamp doesn't match the latest one by the time it resolves is
+  // discarded rather than applied to state.
+  const latestRequestId = useRef(0);
 
   useEffect(() => {
     function handler(event: KeyboardEvent) {
@@ -68,6 +74,7 @@ export default function SearchPage() {
   }, [filters]);
 
   async function runSearch(newOffset: number) {
+    const requestId = ++latestRequestId.current;
     setLoading(true);
     setSearched(true);
     try {
@@ -81,13 +88,15 @@ export default function SearchPage() {
         limit: PAGE_SIZE,
         offset: newOffset,
       });
+      if (requestId !== latestRequestId.current) return; // a newer search already superseded this one
       setResults(response.results);
       setTotal(response.total);
       setOffset(newOffset);
     } catch (err) {
+      if (requestId !== latestRequestId.current) return;
       toast.error(err instanceof ApiError ? err.message : "Search failed");
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestId.current) setLoading(false);
     }
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Folder as FolderIcon } from "lucide-react";
 import { foldersApi } from "@/lib/api/endpoints";
 import type { FolderTreeNodeOut } from "@/lib/api/types";
+import { folderIndentPx } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,7 +71,7 @@ export function FolderPickerDialog({
             <button
               key={f.id}
               onClick={() => setSelected(f.id)}
-              style={{ paddingLeft: 8 + f.depth * 16 }}
+              style={{ paddingLeft: folderIndentPx(f.depth) }}
               className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
                 selected === f.id ? "bg-secondary font-medium" : "hover:bg-muted"
               }`}
